@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>CSV数据可视化</title>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .button-container {
+            margin: 20px;
+        }
+        .csv-button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        .csv-button:hover {
+            background-color: #45a049;
+        }
+        #tableContainer {
+            margin: 20px;
+            overflow-x: auto;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        #chartContainer {
+            margin: 20px;
+            max-width: 800px;
+        }
+    </style>
+</head>
+<body>
+    <div class="button-container">
+        <button class="csv-button" onclick="loadCSV('Allometry-CL.csv')">Allometry-CL</button>
+        <button class="csv-button" onclick="loadCSV('CL and Vss in preclinical.csv')">CL and Vss in preclinical</button>
+        <button class="csv-button" onclick="loadCSV('FCIM.csv')">FCIM</button>
+        <button class="csv-button" onclick="loadCSV('IVIVE for CL.csv')">IVIVE for CL</button>
+        <button class="csv-button" onclick="loadCSV('Wajim-CL.csv')">Wajim-CL</button>
+    </div>
+    <div id="tableContainer"></div>
+    <div id="chartContainer">
+        <canvas id="myChart"></canvas>
+    </div>
+
+    <script>
+        let currentChart = null;
+        let currentFCIMData = null;
+        let currentCLVssData = null;
+
+        function loadCSV(filename) {
+            const serverUrl = 'http://localhost:8000/';
+            const config = {
+                download: true,
+                dynamicTyping: true,
+                skipEmptyLines: false,
+                error: function(error) {
+                    console.error('加载错误:', error);
+                    alert('无法加载CSV文件，请确保本地服务器正在运行');
+                }
+            };
+
+            // 根据不同的文件使用不同的配置
+            switch(filename) {
+                case 'Allometry-CL.csv':
+                    config.header = false;
+                    config.complete = function(results) {
+                        // 找到实际的数据行（从第21行开始）
+                        const startRow = 20;  // 0-based index
+                        const headers = ['Animal', 'Body Weight (kg)', 'Brain Weight (kg)', 'MLP (years)', 'Cl(L/h)', 'Vdss(L)', 'Fu', 'CL*MLP', 'CL*BrW', 'CL/Fu', 'CL/Fu*MLP', 'CL/Fu*BrW'];
+                        
+                        const cleanData = results.data
+                            .slice(startRow)
+                            .filter(row => row && row.length >= headers.length)
+                            .map(row => {
+                                const obj = {};
+                                headers.forEach((header, i) => {
+                                    let value = row[i];
+                                    if (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!' || value === '') {
+                                        value = null;
+                                    }
+                                    obj[header] = value;
+                                });
+                                return obj;
+                            })
+                            .filter(row => Object.values(row).some(v => v !== null));
+                        
+                        displayData(cleanData, filename);
+                    };
+                    break;
+
+                case 'FCIM.csv':
+                    config.header = false;
+                    config.complete = function(results) {
+                        const startRow = 9;  // 0-based index
+                        const headers = ['Animal', 'Body Weight (kg)', 'CL (mL/min)', 'Log BW', 'Log CL'];
+                        
+                        const cleanData = results.data
+                            .slice(startRow)
+                            .filter(row => row && row.length >= headers.length)
+                            .map(row => {
+                                const obj = {};
+                                headers.forEach((header, i) => {
+                                    let value = row[i];
+                                    if (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!' || value === '') {
+                                        value = null;
+                                    }
+                                    obj[header] = value;
+                                });
+                                return obj;
+                            })
+                            .filter(row => Object.values(row).some(v => v !== null));
+                        
+                        // 存储FCIM数据到全局变量
+                        currentFCIMData = cleanData;
+                        
+                        displayData(cleanData, filename);
+                    };
+                    break;
+
+                case 'IVIVE for CL.csv':
+                    config.header = true;
+                    config.skipEmptyLines = 'greedy';
+                    config.complete = function(results) {
+                        const cleanData = results.data
+                            .filter(row => 
+                                row['Compound ID'] && 
+                                row['Species'] &&
+                                Object.values(row).some(v => v !== null && v !== '')
+                            )
+                            .map(row => {
+                                const cleanRow = {};
+                                Object.entries(row).forEach(([key, value]) => {
+                                    cleanRow[key] = (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!' || value === '') 
+                                        ? null 
+                                        : value;
+                                });
+                                return cleanRow;
+                            });
+                        
+                        displayData(cleanData, filename);
+                    };
+                    break;
+
+                case 'Wajim-CL.csv':
+                    config.header = false;
+                    config.complete = function(results) {
+                        // 找到实际的数据行
+                        const headers = ['Parameter', 'Value', 'Unit'];
+                        const cleanData = results.data
+                            .filter(row => row && row.length >= 2)
+                            .map(row => ({
+                                Parameter: row[0] || '',
+                                Value: row[1] === '#REF!' ? null : row[1],
+                                Unit: row[2] || ''
+                            }))
+                            .filter(row => row.Parameter && row.Parameter !== '');
+                        
+                        displayData(cleanData, filename);
+                    };
+                    break;
+
+                default:
+                    // CL and Vss in preclinical.csv 使用默认配置
+                    config.header = true;
+                    config.complete = function(results) {
+                        const cleanData = results.data
+                            .filter(row => Object.values(row).some(v => v !== null && v !== ''))
+                            .map(row => {
+                                const cleanRow = {};
+                                Object.entries(row).forEach(([key, value]) => {
+                                    cleanRow[key] = (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!' || value === '') 
+                                        ? null 
+                                        : value;
+                                });
+                                return cleanRow;
+                            });
+                        
+                        // 存储数据到全局变量
+                        if (filename === 'CL and Vss in preclinical.csv') {
+                            currentCLVssData = cleanData;
+                        }
+                        
+                        displayData(cleanData, filename);
+                    };
+                    break;
+            }
+
+            // 添加调试信息
+            console.log('正在加载文件:', filename);
+            console.log('使用的配置:', config);
+
+            Papa.parse(serverUrl + filename, config);
+        }
+
+        function displayData(data, filename) {
+            if (!data || data.length === 0) {
+                console.error('没有数据可显示');
+                return;
+            }
+            
+            // 创建表格
+            let table = '<table><thead><tr>';
+            const headers = Object.keys(data[0]);
+            headers.forEach(header => {
+                table += `<th>${header || '未命名列'}</th>`;
+            });
+            table += '</tr></thead><tbody>';
+
+            // 根据文件类型使用不同的表格单元格渲染方式
+            if (filename === 'FCIM.csv') {
+                data.forEach((row, rowIndex) => {
+                    table += '<tr>';
+                    headers.forEach(header => {
+                        const value = row[header];
+                        if (header === 'CL (mL/min)') {
+                            // CL列使用输入框
+                            table += `<td>
+                                <input type="number" 
+                                    value="${value || ''}" 
+                                    step="0.0001"
+                                    style="width: 100px;"
+                                    onchange="updateCLValue(${rowIndex}, this.value)"
+                                />
+                            </td>`;
+                        } else {
+                            // 其他列正常显示
+                            let formattedValue = '';
+                            if (typeof value === 'number' && !isNaN(value)) {
+                                formattedValue = value.toFixed(4);
+                            } else if (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!') {
+                                formattedValue = 'N/A';
+                            } else {
+                                formattedValue = value || '';
+                            }
+                            table += `<td>${formattedValue}</td>`;
+                        }
+                    });
+                    table += '</tr>';
+                });
+            } else if (filename === 'CL and Vss in preclinical.csv') {
+                data.forEach((row, rowIndex) => {
+                    table += '<tr>';
+                    headers.forEach(header => {
+                        const value = row[header];
+                        if (header === 'CL/F(mL/min/kg)' || header === 'Vd/F (L/kg)' || 
+                            header === 'CL(mL/min)' || header === 'CL(L/h)' || 
+                            header === 'Vss (L)' || header === 'fu' || 
+                            header === 'CL/fu' || header === 'Vss/fu') {
+                            // 可编辑的数值列
+                            table += `<td>
+                                <input type="number" 
+                                    value="${value || ''}" 
+                                    step="0.0001"
+                                    style="width: 100px;"
+                                    onchange="updateCLVssValue(${rowIndex}, '${header}', this.value)"
+                                />
+                            </td>`;
+                        } else {
+                            // 其他列正常显示
+                            let formattedValue = '';
+                            if (typeof value === 'number' && !isNaN(value)) {
+                                formattedValue = value.toFixed(4);
+                            } else if (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!') {
+                                formattedValue = 'N/A';
+                            } else {
+                                formattedValue = value || '';
+                            }
+                            table += `<td>${formattedValue}</td>`;
+                        }
+                    });
+                    table += '</tr>';
+                });
+            } else {
+                // 其他文件使用原来的表格显示方式
+                data.forEach(row => {
+                    table += '<tr>';
+                    headers.forEach(header => {
+                        const value = row[header];
+                        let formattedValue = '';
+                        if (typeof value === 'number' && !isNaN(value)) {
+                            formattedValue = value.toFixed(4);
+                        } else if (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!') {
+                            formattedValue = 'N/A';
+                        } else {
+                            formattedValue = value || '';
+                        }
+                        table += `<td>${formattedValue}</td>`;
+                    });
+                    table += '</tr>';
+                });
+            }
+
+            table += '</tbody></table>';
+            document.getElementById('tableContainer').innerHTML = table;
+
+            // 更新图表
+            updateChart(data, filename);
+        }
+
+        function updateChart(data, filename) {
+            if (currentChart) {
+                currentChart.destroy();
+            }
+
+            const ctx = document.getElementById('myChart').getContext('2d');
+            const headers = Object.keys(data[0]);
+            
+            // 根据文件名选择合适的图表配置
+            const chartConfig = getChartConfig(filename, data, headers);
+            currentChart = new Chart(ctx, chartConfig);
+        }
+
+        function getChartConfig(filename, data, headers) {
+            if (filename === 'Allometry-CL.csv') {
+                // 找到包含有效数据的列
+                const validHeaders = headers.filter(header => 
+                    data.some(row => row[header] !== null && !isNaN(row[header]))
+                );
+
+                // 找到可能的x轴数据（通常是体重或其他度量）
+                const xHeader = validHeaders.find(h => 
+                    h.toLowerCase().includes('weight') || 
+                    h.toLowerCase().includes('bw') ||
+                    h.toLowerCase().includes('brain')
+                ) || validHeaders[0];
+
+                // 创建数据集
+                const datasets = validHeaders
+                    .filter(header => header !== xHeader)
+                    .map(header => ({
+                        label: header,
+                        data: data
+                            .filter(row => 
+                                row[xHeader] !== null && 
+                                row[header] !== null && 
+                                !isNaN(row[xHeader]) && 
+                                !isNaN(row[header])
+                            )
+                            .map(row => ({
+                                x: row[xHeader],
+                                y: row[header]
+                            })),
+                        backgroundColor: getRandomColor()
+                    }))
+                    .filter(dataset => dataset.data.length > 0);
+
+                return {
+                    type: 'scatter',
+                    data: { datasets },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Allometry Analysis',
+                                font: { size: 16 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: (${context.parsed.x}, ${context.parsed.y})`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                position: 'bottom',
+                                title: {
+                                    display: true,
+                                    text: xHeader
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Values'
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+            
+            // 根据不同的文件选择不同的图表配置
+            if (filename === 'CL and Vss in preclinical.csv') {
+                return {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(row => row['Animal']).filter(label => label),
+                        datasets: [
+                            {
+                                label: 'CL/F(mL/min/kg)',
+                                data: data.map(row => row['CL/F(mL/min/kg)']),
+                                backgroundColor: 'rgba(75, 192, 192, 0.5)'
+                            },
+                            {
+                                label: 'Vd/F (L/kg)',
+                                data: data.map(row => row['Vd/F (L/kg)']),
+                                backgroundColor: 'rgba(255, 99, 132, 0.5)'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'CL and Vss in Preclinical',
+                                font: { size: 16 }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: { 
+                                    display: true,
+                                    text: '值'
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+            
+            // 修改FCIM的图表配置
+            if (filename === 'FCIM.csv') {
+                return {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: 'Log CL vs Log BW',
+                            data: data
+                                .filter(row => 
+                                    row['Log BW'] !== null && 
+                                    row['Log CL'] !== null && 
+                                    !isNaN(row['Log BW']) && 
+                                    !isNaN(row['Log CL'])
+                                )
+                                .map(row => ({
+                                    x: row['Log BW'],
+                                    y: row['Log CL']
+                                })),
+                            backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            pointRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'FCIM Analysis - Log CL vs Log BW',
+                                font: { size: 16 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `(${context.parsed.x.toFixed(4)}, ${context.parsed.y.toFixed(4)})`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Log BW'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Log CL'
+                                }
+                            }
+                        }
+                    }
+                };
+            }
+            
+            // 默认配置（用于其他文件）
+            return {
+                type: 'scatter',
+                data: {
+                    datasets: headers.slice(1).map(header => ({
+                        label: header,
+                        data: data.map(row => ({
+                            x: row[headers[0]],
+                            y: row[header]
+                        })).filter(point => 
+                            point.x !== null && 
+                            point.y !== null && 
+                            !isNaN(point.x) && 
+                            !isNaN(point.y)
+                        ),
+                        backgroundColor: getRandomColor()
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: filename,
+                            font: { size: 16 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.dataset.label || '';
+                                    const value = context.parsed.y;
+                                    return `${label}: ${value.toFixed(4)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: headers[0]
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '值'
+                            }
+                        }
+                    }
+                }
+            };
+        }
+
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        // 添加更新CL值的函数
+        function updateCLValue(rowIndex, newValue) {
+            if (!currentFCIMData) return;
+
+            // 更新数据
+            currentFCIMData[rowIndex]['CL (mL/min)'] = parseFloat(newValue);
+            
+            // 计算新的Log CL值
+            if (!isNaN(newValue) && newValue > 0) {
+                currentFCIMData[rowIndex]['Log CL'] = Math.log10(parseFloat(newValue));
+            } else {
+                currentFCIMData[rowIndex]['Log CL'] = null;
+            }
+
+            // 更新图表
+            updateChart(currentFCIMData, 'FCIM.csv');
+        }
+
+        // 添加更新 CL and Vss 值的函数
+        function updateCLVssValue(rowIndex, header, newValue) {
+            if (!currentCLVssData) return;
+
+            // 更新数据
+            const value = parseFloat(newValue);
+            if (!isNaN(value)) {
+                currentCLVssData[rowIndex][header] = value;
+
+                // 根据不同的字段更新相关的计算值
+                const row = currentCLVssData[rowIndex];
+                const BW = row['BW(kg)'];
+
+                switch(header) {
+                    case 'CL/F(mL/min/kg)':
+                        if (BW) {
+                            row['CL(mL/min)'] = value * BW;
+                            row['CL(L/h)'] = (value * BW) / 1000 * 60;
+                        }
+                        break;
+                    case 'CL(mL/min)':
+                        if (BW) {
+                            row['CL/F(mL/min/kg)'] = value / BW;
+                            row['CL(L/h)'] = value / 1000 * 60;
+                        }
+                        break;
+                    case 'CL(L/h)':
+                        if (BW) {
+                            const CLmLmin = value * 1000 / 60;
+                            row['CL(mL/min)'] = CLmLmin;
+                            row['CL/F(mL/min/kg)'] = CLmLmin / BW;
+                        }
+                        break;
+                    case 'fu':
+                        if (row['CL(L/h)']) {
+                            row['CL/fu'] = row['CL(L/h)'] / value;
+                        }
+                        if (row['Vss (L)']) {
+                            row['Vss/fu'] = row['Vss (L)'] / value;
+                        }
+                        break;
+                }
+
+                // 更新显示
+                displayData(currentCLVssData, 'CL and Vss in preclinical.csv');
+            }
+        }
+    </script>
+</body>
+</html> 
