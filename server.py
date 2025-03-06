@@ -15,4 +15,4 @@ class CORSRequestHandler(SimpleHTTPRequestHandler):
 port = 8000
 print(f"Starting server at http://localhost:{port}")
 httpd = HTTPServer(('localhost', port), CORSRequestHandler)
-httpd.serve_forever() 
+httpd.serve_forever()
