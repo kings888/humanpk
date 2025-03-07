@@ -89,16 +89,23 @@
         let currentAllometryData = null;
 
         function loadCSV(filename) {
-            const serverUrl = 'http://localhost:8000/';
+            // 使用当前窗口的主机名和端口号构建服务器URL
+            const serverUrl = `${window.location.protocol}//${window.location.host}/`;
+            console.log('Server URL:', serverUrl);  // 调试输出
+            
             const config = {
                 download: true,
                 dynamicTyping: true,
-                skipEmptyLines: false,  // 默认配置
+                skipEmptyLines: false,
                 error: function(error) {
                     console.error('加载错误:', error);
                     alert('无法加载CSV文件，请确保本地服务器正在运行');
                 }
             };
+
+            // 对文件名进行编码
+            const encodedFilename = encodeURIComponent(filename);
+            console.log('尝试加载文件:', serverUrl + encodedFilename);
 
             // 根据不同的文件使用不同的配置
             switch(filename) {
@@ -459,7 +466,7 @@
             console.log('正在加载文件:', filename);
             console.log('使用的配置:', config);
 
-            Papa.parse(serverUrl + filename, config);
+            Papa.parse(serverUrl + encodedFilename, config);
         }
 
         function getColumnLabel(index) {
