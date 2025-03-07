@@ -105,58 +105,71 @@
                     config.header = false;
                     config.skipEmptyLines = true;
                     config.complete = function(results) {
-                        // 定义两个表的表头
-                        const table1Headers = [
-                            'Animal', 'Body Weight (kg)', 'Brain Weight (kg)', 'MLP (years)',
-                            'Cl(L/h)', 'Vdss（L）', 'Fu', 'CL*MLP', 'CL*BrW', 'CL/Fu',
-                            'CL/Fu*MLP', 'CL/Fu*BrW'
+                        console.log('Raw data:', results.data);
+
+                        // 定义常数值
+                        const constants = {
+                            'Mouse': { 'Body Weight (kg)': 0.025, 'Brain Weight (kg)': 0.0004 },
+                            'Rat': { 'Body Weight (kg)': 0.3, 'Brain Weight (kg)': 0.0018 },
+                            'Dog': { 'Body Weight (kg)': 10, 'Brain Weight (kg)': 0.08 },
+                            'Monkey': { 'Body Weight (kg)': 5, 'Brain Weight (kg)': 0.09 },
+                            'Human': { 'Body Weight (kg)': 60, 'Brain Weight (kg)': 1.4 }
+                        };
+
+                        // 处理第一个表的数据
+                        const mainData = [];
+                        const animals = ['Mouse', 'Rat', 'Dog', 'Monkey', 'Human'];
+
+                        animals.forEach(animal => {
+                            const obj = {
+                                'Animal': animal,
+                                'Body Weight (kg)': constants[animal]['Body Weight (kg)'],
+                                'Brain Weight (kg)': constants[animal]['Brain Weight (kg)'],
+                                'MLP (years)': 1,  // 默认值
+                                'Fu': 1,  // 默认值
+                                'Cl(L/h)': null,
+                                'Vdss（L）': null,
+                                'CL*MLP': null,
+                                'CL*BrW': null,
+                                'CL/Fu': null,
+                                'CL/Fu*MLP': null,
+                                'CL/Fu*BrW': null
+                            };
+                            mainData.push(obj);
+                        });
+
+                        // 处理第二个表的数据（对数值表）
+                        const logData = [
+                            {
+                                'Item': 'Mean',
+                                'Log BW': null,
+                                'if 0.55＜b ≤0.71': null,
+                                'if 0.71＜b ≤1': null,
+                                'if 1＜b ≤1.3': null,
+                                'log CL*BrW': null,
+                                'log CL/Fu': null,
+                                'log CL/Fu*MLP': null,
+                                'log CL/Fu*BrW': null
+                            },
+                            {
+                                'Item': 'SD',
+                                'Log BW': null,
+                                'if 0.55＜b ≤0.71': null,
+                                'if 0.71＜b ≤1': null,
+                                'if 1＜b ≤1.3': null,
+                                'log CL*BrW': null,
+                                'log CL/Fu': null,
+                                'log CL/Fu*MLP': null,
+                                'log CL/Fu*BrW': null
+                            }
                         ];
-
-                        const table2Headers = [
-                            'Item', 'Log BW', 'if 0.55＜b ≤0.71', 'if 0.71＜b ≤1', 'if 1＜b ≤1.3',
-                            'log CL*BrW', 'log CL/Fu', 'log CL/Fu*MLP', 'log CL/Fu*BrW'
-                        ];
-
-                        // 处理第一个表的数据（从第22行开始）
-                        const mainData = results.data
-                            .slice(21, 26)  // 只取需要的行
-                            .filter(row => row && row.length >= 6)  // 确保行有足够的数据
-                            .map(row => {
-                                const obj = {};
-                                table1Headers.forEach((header, i) => {
-                                    let value = row[i + 5];  // 偏移5列
-                                    if (value === '#REF!' || value === '#DIV/0!' || 
-                                        value === '#VALUE!' || value === '') {
-                                        value = null;
-                                    }
-                                    obj[header] = value;
-                                });
-                                return obj;
-                            });
-
-                        // 处理第二个表的数据（从第33行开始）
-                        const logData = results.data
-                            .slice(32, 37)  // 只取需要的行
-                            .filter(row => row && row.length >= 6)  // 确保行有足够的数据
-                            .map(row => {
-                                const obj = {};
-                                table2Headers.forEach((header, i) => {
-                                    let value = row[i + 5];  // 偏移5列
-                                    if (value === '#REF!' || value === '#DIV/0!' || 
-                                        value === '#VALUE!' || value === '') {
-                                        value = null;
-                                    }
-                                    obj[header] = value;
-                                });
-                                return obj;
-                            });
 
                         // 创建两个表格的HTML
                         let tablesHtml = '<div style="margin-bottom: 20px;">';
                         
                         // 第一个表格
                         tablesHtml += '<h3>Basic Parameters</h3>';
-                        tablesHtml += createTableHtml(mainData);
+                        tablesHtml += createAllometryTableHtml(mainData);
                         
                         // 第二个表格
                         tablesHtml += '<h3 style="margin-top: 20px;">Logarithmic Values</h3>';
@@ -996,6 +1009,59 @@
             console.log(`Updated column ${colIndex} with value ${newValue}`);
             // 这里可以添加值更新后的处理逻辑，比如计算其他列的值
             // 例如，如果输入了 mL/min/kg，可以自动计算 mL/min 和 L/hr
+        }
+
+        // 添加新的函数来创建特殊的Allometry表格
+        function createAllometryTableHtml(data) {
+            if (!data || data.length === 0) return '<p>No data available</p>';
+
+            let table = '<table><thead><tr><th></th>';
+            const headers = Object.keys(data[0]);
+            
+            // 创建表头
+            headers.forEach((header, colIndex) => {
+                const colLabel = getColumnLabel(colIndex);
+                table += `<th>${header}<div class="cell-position">${colLabel}</div></th>`;
+            });
+            table += '</tr></thead><tbody>';
+
+            // 创建数据行
+            data.forEach((row, rowIndex) => {
+                table += `<tr><td class="row-header">${rowIndex + 1}</td>`;
+                headers.forEach((header, colIndex) => {
+                    const value = row[header];
+                    const cellPosition = `${getColumnLabel(colIndex)}${rowIndex + 1}`;
+                    
+                    // 根据不同列类型创建不同的单元格
+                    if (header === 'Body Weight (kg)' || header === 'Brain Weight (kg)') {
+                        // 常数列 - 只显示值
+                        table += `<td>
+                            <div class="cell-position">${cellPosition}</div>
+                            ${value?.toFixed(4) || ''}
+                        </td>`;
+                    } else if (header === 'MLP (years)' || header === 'Fu') {
+                        // 可编辑列 - 默认值为1
+                        table += `<td>
+                            <div class="cell-position">${cellPosition}</div>
+                            <input type="number" 
+                                value="${value || 1}" 
+                                step="0.0001"
+                                style="width: 100px;"
+                                onchange="updateAllometryValue('${header}', ${rowIndex}, this.value)"
+                            />
+                        </td>`;
+                    } else {
+                        // 其他列 - 普通显示
+                        table += `<td>
+                            <div class="cell-position">${cellPosition}</div>
+                            ${typeof value === 'number' ? value.toFixed(4) : (value || '')}
+                        </td>`;
+                    }
+                });
+                table += '</tr>';
+            });
+            table += '</tbody></table>';
+            return table;
         }
     </script>
 </body>
