@@ -86,6 +86,7 @@
         let currentChart = null;
         let currentFCIMData = null;
         let currentCLVssData = null;
+        let currentAllometryData = null;
 
         function loadCSV(filename) {
             const serverUrl = 'http://localhost:8000/';
@@ -105,43 +106,51 @@
                     config.header = false;
                     config.skipEmptyLines = true;
                     config.complete = function(results) {
-                        console.log('Raw data:', results.data);
-
-                        // 定义常数值
-                        const constants = {
-                            'Mouse': { 'Body Weight (kg)': 0.025, 'Brain Weight (kg)': 0.0004 },
-                            'Rat': { 'Body Weight (kg)': 0.3, 'Brain Weight (kg)': 0.0018 },
-                            'Dog': { 'Body Weight (kg)': 10, 'Brain Weight (kg)': 0.08 },
-                            'Monkey': { 'Body Weight (kg)': 5, 'Brain Weight (kg)': 0.09 },
-                            'Human': { 'Body Weight (kg)': 60, 'Brain Weight (kg)': 1.4 }
-                        };
+                        // 设置所有12列
+                        const mainTableColumns = [
+                            'Animal',
+                            'Body Weight (kg)',
+                            'Brain Weight (kg)',
+                            'MLP (years)',
+                            'Cl(L/h)',
+                            'Vdss（L）',
+                            'Fu',
+                            'CL*MLP',
+                            'CL*BrW',
+                            'CL/Fu',
+                            'CL/Fu*MLP',
+                            'CL/Fu*BrW'
+                        ];
 
                         // 处理第一个表的数据
                         const mainData = [];
                         const animals = ['Mouse', 'Rat', 'Dog', 'Monkey', 'Human'];
 
-                        animals.forEach(animal => {
-                            const obj = {
-                                'Animal': animal,
-                                'Body Weight (kg)': constants[animal]['Body Weight (kg)'],
-                                'Brain Weight (kg)': constants[animal]['Brain Weight (kg)'],
-                                'MLP (years)': 1,  // 默认值
-                                'Fu': 1,  // 默认值
-                                'Cl(L/h)': null,
-                                'Vdss（L）': null,
-                                'CL*MLP': null,
-                                'CL*BrW': null,
-                                'CL/Fu': null,
-                                'CL/Fu*MLP': null,
-                                'CL/Fu*BrW': null
-                            };
-                            mainData.push(obj);
+                        animals.forEach((animal, index) => {
+                            const rowData = {};
+                            mainTableColumns.forEach(column => {
+                                if (column === 'Animal') {
+                                    rowData[column] = animal;
+                                } else if (column === 'Body Weight (kg)' || column === 'Brain Weight (kg)') {
+                                    rowData[column] = 1;  // 默认值设为1
+                                } else if (column === 'Fu') {
+                                    rowData[column] = index === 0 ? 2 : 1;  // 第一行Fu值为2，其他为1
+                                } else if (column === 'MLP (years)') {
+                                    // 使用公式计算 MLP: 185.4 * (Brain Weight^0.636) * (Body Weight^-0.225)
+                                    const brainWeight = 1;  // 使用默认值1
+                                    const bodyWeight = 1;   // 使用默认值1
+                                    rowData[column] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
+                                } else {
+                                    rowData[column] = null;
+                                }
+                            });
+                            mainData.push(rowData);
                         });
 
                         // 处理第二个表的数据（对数值表）
                         const logData = [
                             {
-                                'Item': 'Mean',
+                                'Item': 'Mouse',
                                 'Log BW': null,
                                 'if 0.55＜b ≤0.71': null,
                                 'if 0.71＜b ≤1': null,
@@ -152,7 +161,40 @@
                                 'log CL/Fu*BrW': null
                             },
                             {
-                                'Item': 'SD',
+                                'Item': 'Rat',
+                                'Log BW': null,
+                                'if 0.55＜b ≤0.71': null,
+                                'if 0.71＜b ≤1': null,
+                                'if 1＜b ≤1.3': null,
+                                'log CL*BrW': null,
+                                'log CL/Fu': null,
+                                'log CL/Fu*MLP': null,
+                                'log CL/Fu*BrW': null
+                            },
+                            {
+                                'Item': 'Dog',
+                                'Log BW': null,
+                                'if 0.55＜b ≤0.71': null,
+                                'if 0.71＜b ≤1': null,
+                                'if 1＜b ≤1.3': null,
+                                'log CL*BrW': null,
+                                'log CL/Fu': null,
+                                'log CL/Fu*MLP': null,
+                                'log CL/Fu*BrW': null
+                            },
+                            {
+                                'Item': 'Monkey',
+                                'Log BW': null,
+                                'if 0.55＜b ≤0.71': null,
+                                'if 0.71＜b ≤1': null,
+                                'if 1＜b ≤1.3': null,
+                                'log CL*BrW': null,
+                                'log CL/Fu': null,
+                                'log CL/Fu*MLP': null,
+                                'log CL/Fu*BrW': null
+                            },
+                            {
+                                'Item': 'Human',
                                 'Log BW': null,
                                 'if 0.55＜b ≤0.71': null,
                                 'if 0.71＜b ≤1': null,
@@ -179,7 +221,13 @@
                         
                         document.getElementById('tableContainer').innerHTML = tablesHtml;
 
-                        // 更新图表（使用第一个表的数据）
+                        // 存储数据到全局变量
+                        currentAllometryData = {
+                            mainData: mainData,
+                            logData: logData
+                        };
+
+                        // 更新图表
                         updateChart(mainData, filename);
                     };
                     break;
@@ -1032,15 +1080,8 @@
                     const value = row[header];
                     const cellPosition = `${getColumnLabel(colIndex)}${rowIndex + 1}`;
                     
-                    // 根据不同列类型创建不同的单元格
                     if (header === 'Body Weight (kg)' || header === 'Brain Weight (kg)') {
-                        // 常数列 - 只显示值
-                        table += `<td>
-                            <div class="cell-position">${cellPosition}</div>
-                            ${value?.toFixed(4) || ''}
-                        </td>`;
-                    } else if (header === 'MLP (years)' || header === 'Fu') {
-                        // 可编辑列 - 默认值为1
+                        // 可编辑的体重和脑重列
                         table += `<td>
                             <div class="cell-position">${cellPosition}</div>
                             <input type="number" 
@@ -1049,6 +1090,12 @@
                                 style="width: 100px;"
                                 onchange="updateAllometryValue('${header}', ${rowIndex}, this.value)"
                             />
+                        </td>`;
+                    } else if (header === 'Fu' || header === 'MLP (years)') {
+                        // 常数列 - 只显示值，不可编辑
+                        table += `<td>
+                            <div class="cell-position">${cellPosition}</div>
+                            ${value?.toFixed(4) || ''}
                         </td>`;
                     } else {
                         // 其他列 - 普通显示
@@ -1062,6 +1109,36 @@
             });
             table += '</tbody></table>';
             return table;
+        }
+
+        // 添加更新值的函数
+        function updateAllometryValue(header, rowIndex, newValue) {
+            if (!currentAllometryData || !currentAllometryData.mainData) return;
+
+            const row = currentAllometryData.mainData[rowIndex];
+            const value = parseFloat(newValue);
+            
+            if (!isNaN(value)) {
+                row[header] = value;
+                
+                // 重新计算 MLP
+                const brainWeight = row['Brain Weight (kg)'];
+                const bodyWeight = row['Body Weight (kg)'];
+                if (brainWeight && bodyWeight) {
+                    row['MLP (years)'] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
+                }
+
+                // 更新显示
+                document.getElementById('tableContainer').innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <h3>Basic Parameters</h3>
+                        ${createAllometryTableHtml(currentAllometryData.mainData)}
+                        <h3 style="margin-top: 20px;">Logarithmic Values</h3>
+                        ${createTableHtml(currentAllometryData.logData)}
+                    </div>
+                `;
+                updateChart(currentAllometryData.mainData, 'Allometry-CL.csv');
+            }
         }
     </script>
 </body>
