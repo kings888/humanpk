@@ -1,0 +1,20 @@
+	Animal	Body Weight (kg)	Brain Weight (kg)	MLP (years)	Cl(L/h)	Vdss（L）	Fu	CL*MLP	CL*BrW	CL/Fu	CL/Fu*MLP	CL/Fu*BrW
+	Mouse	0.025	=I25	=185.4*(I23^0.636)*(H23^-0.225)	='CL and Vss in preclinical'!F3	='CL and Vss in preclinical'!H3	0.05	=K23*J23	=K23*I23	=K23/M23	=P23*J23	=P23*I23
+	Rat	0.3	=H24*0.57/100	=185.4*(I24^0.636)*(H24^-0.225)	='CL and Vss in preclinical'!F4	='CL and Vss in preclinical'!H4	0.02	=K24*J24	=K24*I24	=K24/M24	=P24*J24	=P24*I24
+	Dog	10	=H25*0.78/100	=185.4*(I25^0.636)*(H25^-0.225)	='CL and Vss in preclinical'!F5	='CL and Vss in preclinical'!H5	0.03	=K25*J25	=K25*I25	=K25/M25	=P25*J25	=P25*I25
+	Monkey	5	=H26*1.56/100	=185.4*(I26^0.636)*(H26^-0.225)	='CL and Vss in preclinical'!F6	='CL and Vss in preclinical'!H6	0.05	=K26*J26	=K26*I26	=K26/M26	=P26*J26	=P26*I26
+	Human	60	=H27*2/100	=185.4*(I27^0.636)*(H27^-0.225)	=10^I41		='CL and Vss in preclinical'!I5					
+	Human	60	=H28*2/100	=185.4*(I28^0.636)*(H28^-0.225)	=N28/J28		='CL and Vss in preclinical'!I6	=10^J41				
+	Human	60	=H29*2/100	=185.4*(I29^0.636)*(H29^-0.225)	=O29/I29		0.01		=10^K41			
+	Human	60	=H30*2/100	=185.4*(I30^0.636)*(H30^-0.225)	=P30*M30		='CL and Vss in preclinical'!I8			=10^L41		
+	Human	60	=H31*2/100	=185.4*(I31^0.636)*(H31^-0.225)	=P31/M31		=M30			=Q31/J31	=10^M41	
+	Human	60	=H32*2/100	=185.4*(I32^0.636)*(H32^-0.225)	=P32*M30		=M30			=R32/I30		=10^N41
+		X轴	Y轴									
+						Fu adjusted						
+			if 0.55＜b ≤0.71	if 0.71＜b ≤1	if 1＜b ≤1.3	if 0.55＜b ≤0.71	if 0.71＜b ≤1	if 1＜b ≤1.3				
+		Log BW	log CL	log CL*MLP	log CL*BrW	log CL/Fu	log CL/Fu*MLP	log CL/Fu*BrW				
+	Mouse	=LOG(H23)	=LOG(K23)	=LOG(N23)	=LOG(O23)	=LOG(P23)	=LOG(Q23)	=LOG(R23)				
+	Rat	=LOG(H24)	=LOG(K24)	=LOG(N24)	=LOG(O24)	=LOG(P24)	=LOG(Q24)	=LOG(R24)				
+	Dog	=LOG(H25)	=LOG(K25)	=LOG(N25)	=LOG(O25)	=LOG(P25)	=LOG(Q25)	=LOG(R25)				
+	Monkey	=LOG(H26)	=LOG(K26)	=LOG(N26)	=LOG(O26)	=LOG(P26)	=LOG(Q26)	=LOG(R26)				
+	human	=LOG(H30)	=ROUND(INDEX(LINEST(I37:I40,H37:H40,TRUE,TRUE),1,1),4)*H41+ROUND(INDEX(LINEST(I37:I40,H37:H40,TRUE,TRUE),1,2),4)			=ROUND(INDEX(LINEST(L37:L40,H37:H40,TRUE,TRUE),1,1),4)*H41+ROUND(INDEX(LINEST(I37:I40,H37:H40,TRUE,TRUE),1,2),4)	=ROUND(INDEX(LINEST(M37:M40,H37:H40,TRUE,TRUE),1,1),4)*H41+ROUND(INDEX(LINEST(I37:I40,H37:H40,TRUE,TRUE),1,2),4)	=ROUND(INDEX(LINEST(N37:N40,H37:H40,TRUE,TRUE),1,1),4)*H41+ROUND(INDEX(LINEST(I37:I40,H37:H40,TRUE,TRUE),1,2),4)				

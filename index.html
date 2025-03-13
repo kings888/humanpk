@@ -67,6 +67,15 @@
             text-align: center;
             font-weight: 300;
         }
+        .constant-cell {
+            background-color: #f0f0f0;
+        }
+        .input-cell {
+            background-color: #fff;
+        }
+        .output-cell {
+            background-color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -133,6 +142,7 @@
                         const mainData = [];
                         const animals = ['Mouse', 'Rat', 'Dog', 'Monkey', 'Human'];
 
+                        // 添加原有的5行数据
                         animals.forEach((animal, index) => {
                             const rowData = {};
                             mainTableColumns.forEach(column => {
@@ -141,18 +151,61 @@
                                 } else if (column === 'Body Weight (kg)' || column === 'Brain Weight (kg)') {
                                     rowData[column] = 1;  // 默认值设为1
                                 } else if (column === 'Fu') {
-                                    rowData[column] = index === 0 ? 2 : 1;  // 第一行Fu值为2，其他为1
-                                } else if (column === 'MLP (years)') {
-                                    // 使用公式计算 MLP: 185.4 * (Brain Weight^0.636) * (Body Weight^-0.225)
-                                    const brainWeight = 1;  // 使用默认值1
-                                    const bodyWeight = 1;   // 使用默认值1
-                                    rowData[column] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
+                                    // 设置M列的值
+                                    switch(index) {
+                                        case 0: rowData[column] = 0.05;   // Mouse
+                                        break;
+                                        case 1: rowData[column] = 0.02;   // Rat
+                                        break;
+                                        case 2: rowData[column] = 0.03;   // Dog
+                                        break;
+                                        case 3: rowData[column] = 0.05;   // Monkey
+                                        break;
+                                        case 4: rowData[column] = 0.01;   // Human
+                                        break;
+                                    }
+                                } else if (column === 'Cl(L/h)') {
+                                    // 设置K23-K26的值
+                                    if (index === 0) rowData[column] = 0.003288;  // K23 (Mouse)
+                                    else if (index === 1) rowData[column] = 0.07;  // K24 (Rat)
+                                    else if (index === 2) rowData[column] = 0.62;  // K25 (Dog)
+                                    else if (index === 3) rowData[column] = 1.166;  // K26 (Monkey)
+                                    else rowData[column] = null;
                                 } else {
                                     rowData[column] = null;
                                 }
                             });
                             mainData.push(rowData);
                         });
+
+                        // 添加新的5行Human数据
+                        for (let i = 0; i < 5; i++) {
+                            const rowData = {};
+                            mainTableColumns.forEach(column => {
+                                if (column === 'Animal') {
+                                    rowData[column] = 'Human';
+                                } else if (column === 'Body Weight (kg)' || column === 'Brain Weight (kg)') {
+                                    rowData[column] = 1;  // 默认值设为1
+                                } else if (column === 'Fu') {
+                                    // 设置后5行Human的Fu值
+                                    switch(i) {
+                                        case 0: rowData[column] = 0.02;
+                                        break;
+                                        case 1: rowData[column] = 0.01;
+                                        break;
+                                        case 2: rowData[column] = 0.01;
+                                        break;
+                                        case 3: rowData[column] = 0.01;
+                                        break;
+                                        case 4: rowData[column] = 0.01;
+                                        break;
+                                    }
+                                } else {
+                                    rowData[column] = null;
+                                }
+                            });
+                            mainData.push(rowData);
+                        }
 
                         // 处理第二个表的数据（对数值表）
                         const logData = [
@@ -470,6 +523,8 @@
         }
 
         function getColumnLabel(index) {
+            // 将索引偏移6位，使A对应G
+            index = index + 6;
             let label = '';
             while (index >= 0) {
                 label = String.fromCharCode(65 + (index % 26)) + label;
@@ -995,10 +1050,11 @@
             table += '</tr></thead><tbody>';
 
             data.forEach((row, rowIndex) => {
-                table += `<tr><td class="row-header">${rowIndex + 1}</td>`;
+                const actualRowNumber = rowIndex + 23;  // 行号从23开始
+                table += `<tr><td class="row-header">${actualRowNumber}</td>`;
                 headers.forEach((header, colIndex) => {
                     const value = row[header];
-                    const cellPosition = `${getColumnLabel(colIndex)}${rowIndex + 1}`;
+                    const cellPosition = `${getColumnLabel(colIndex)}${actualRowNumber}`;  // 使用新的行号
                     let formattedValue = '';
                     if (typeof value === 'number' && !isNaN(value)) {
                         formattedValue = value.toFixed(4);
@@ -1080,16 +1136,32 @@
             });
             table += '</tr></thead><tbody>';
 
-            // 创建数据行
+            // 创建数据行，从23开始编号
             data.forEach((row, rowIndex) => {
-                table += `<tr><td class="row-header">${rowIndex + 1}</td>`;
+                const actualRowNumber = rowIndex + 23;  // 行号从23开始
+                table += `<tr><td class="row-header">${actualRowNumber}</td>`;
                 headers.forEach((header, colIndex) => {
                     const value = row[header];
-                    const cellPosition = `${getColumnLabel(colIndex)}${rowIndex + 1}`;
+                    const cellPosition = `${getColumnLabel(colIndex)}${actualRowNumber}`;  // 使用新的行号
                     
-                    if (header === 'Body Weight (kg)' || header === 'Brain Weight (kg)') {
-                        // 可编辑的体重和脑重列
+                    // B列(index 1)和G列(index 6)是常量
+                    if (colIndex === 1 || colIndex === 6) {
+                        // 常量列 - 只显示值，不可编辑
+                        table += `<td class="constant-cell">
+                            <div class="cell-position">${cellPosition}</div>
+                            ${typeof value === 'number' ? value.toFixed(4) : (value || '')}
+                        </td>`;
+                    } 
+                    // Animal列不可编辑
+                    else if (header === 'Animal') {
                         table += `<td>
+                            <div class="cell-position">${cellPosition}</div>
+                            ${value || ''}
+                        </td>`;
+                    }
+                    // 用户输入值列
+                    else if (header === 'Body Weight (kg)' || header === 'Brain Weight (kg)' || header === 'Fu') {
+                        table += `<td class="input-cell">
                             <div class="cell-position">${cellPosition}</div>
                             <input type="number" 
                                 value="${value || 1}" 
@@ -1098,15 +1170,10 @@
                                 onchange="updateAllometryValue('${header}', ${rowIndex}, this.value)"
                             />
                         </td>`;
-                    } else if (header === 'Fu' || header === 'MLP (years)') {
-                        // 常数列 - 只显示值，不可编辑
-                        table += `<td>
-                            <div class="cell-position">${cellPosition}</div>
-                            ${value?.toFixed(4) || ''}
-                        </td>`;
-                    } else {
-                        // 其他列 - 普通显示
-                        table += `<td>
+                    }
+                    // 输出值列
+                    else {
+                        table += `<td class="output-cell">
                             <div class="cell-position">${cellPosition}</div>
                             ${typeof value === 'number' ? value.toFixed(4) : (value || '')}
                         </td>`;
@@ -1118,7 +1185,7 @@
             return table;
         }
 
-        // 添加更新值的函数
+        // 更新updateAllometryValue函数以处理计算逻辑
         function updateAllometryValue(header, rowIndex, newValue) {
             if (!currentAllometryData || !currentAllometryData.mainData) return;
 
@@ -1128,11 +1195,103 @@
             if (!isNaN(value)) {
                 row[header] = value;
                 
-                // 重新计算 MLP
-                const brainWeight = row['Brain Weight (kg)'];
-                const bodyWeight = row['Body Weight (kg)'];
+                // 更新计算值
+                const bodyWeight = row['Body Weight (kg)'];      // H列
+                const brainWeight = row['Brain Weight (kg)'];    // I列
+                const cl = row['Cl(L/h)'];                      // K列
+                const fu = row['Fu'];                           // M列
+                const mlp = row['MLP (years)'];                 // J列
+
+                // 计算 MLP (J列)
+                // J = 185.4 * (I^0.636) * (H^-0.225)
                 if (brainWeight && bodyWeight) {
                     row['MLP (years)'] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
+                }
+
+                // 计算 CL*MLP (N列)
+                // N = K * J
+                if (cl && row['MLP (years)']) {
+                    row['CL*MLP'] = cl * row['MLP (years)'];
+                }
+
+                // 计算 CL*BrW (O列)
+                // O = K * I
+                if (cl && brainWeight) {
+                    row['CL*BrW'] = cl * brainWeight;
+                }
+
+                // 计算 CL/Fu (P列)
+                // P = K / M
+                if (cl && fu) {
+                    row['CL/Fu'] = cl / fu;
+                }
+
+                // 计算 CL/Fu*MLP (Q列)
+                // Q = P * J
+                if (row['CL/Fu'] && row['MLP (years)']) {
+                    row['CL/Fu*MLP'] = row['CL/Fu'] * row['MLP (years)'];
+                }
+
+                // 计算 CL/Fu*BrW (R列)
+                // R = P * I
+                if (row['CL/Fu'] && brainWeight) {
+                    row['CL/Fu*BrW'] = row['CL/Fu'] * brainWeight;
+                }
+
+                // 特定单元格的计算
+                // 注意：rowIndex 5 对应行号28，因为我们从23开始计数
+                if (currentAllometryData.logData && currentAllometryData.logData[4]) {  // Human的log数据
+                    const logData = currentAllometryData.logData[4];  // Human行的数据
+                    
+                    // N28 = 10^J41
+                    if (rowIndex === 5) {
+                        if (logData['if 0.55＜b ≤0.71'] !== null) {
+                            row['CL*MLP'] = Math.pow(10, logData['if 0.55＜b ≤0.71']);
+                        }
+                    }
+                    
+                    // O29 = 10^K41
+                    if (rowIndex === 6) {
+                        if (logData['if 0.71＜b ≤1'] !== null) {
+                            row['CL*BrW'] = Math.pow(10, logData['if 0.71＜b ≤1']);
+                        }
+                    }
+                    
+                    // P30 = 10^L41
+                    if (rowIndex === 7) {
+                        if (logData['if 1＜b ≤1.3'] !== null) {
+                            row['CL/Fu'] = Math.pow(10, logData['if 1＜b ≤1.3']);
+                        }
+                    }
+                }
+
+                // P31 = Q31/J31
+                if (rowIndex === 8) {
+                    if (row['CL/Fu*MLP'] && row['MLP (years)']) {
+                        row['CL/Fu'] = row['CL/Fu*MLP'] / row['MLP (years)'];
+                    }
+                }
+
+                // P32 = R32/I30
+                if (rowIndex === 9) {
+                    const row30 = currentAllometryData.mainData[7];  // 索引7对应行号30
+                    if (row['CL/Fu*BrW'] && row30 && row30['Brain Weight (kg)']) {
+                        row['CL/Fu'] = row['CL/Fu*BrW'] / row30['Brain Weight (kg)'];
+                    }
+                }
+
+                // Q31 = 10^M41
+                if (rowIndex === 8) {
+                    if (logData['log CL/Fu*MLP'] !== null) {
+                        row['CL/Fu*MLP'] = Math.pow(10, logData['log CL/Fu*MLP']);
+                    }
+                }
+
+                // R32 = 10^N41
+                if (rowIndex === 9) {
+                    if (logData['log CL/Fu*BrW'] !== null) {
+                        row['CL/Fu*BrW'] = Math.pow(10, logData['log CL/Fu*BrW']);
+                    }
                 }
 
                 // 更新显示
