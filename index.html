@@ -96,6 +96,7 @@
         let currentFCIMData = null;
         let currentCLVssData = null;
         let currentAllometryData = null;
+        let currentWajimData = null;
 
         function loadCSV(filename) {
             console.log('尝试加载文件:', filename);
@@ -547,28 +548,38 @@
                                     { Parameter: 'CLrat', Value: 6.20 },
                                     { Parameter: 'CLdog', Value: 2.15 },
                                     { Parameter: 'MW', Value: 614 },
-                                    { Parameter: 'Ha', Value: 12 },
-                                    { Parameter: 'fu_rat', Value: 0.02 },
-                                    { Parameter: 'fu_human', Value: 0.01 }
+                                    { Parameter: 'Ha', Value: 12 }
                                 ];
                                 
                                 // 创建 CL human 数据表
                                 const clHumanData = [
                                     // 第一行：标题行
                                     {
-                                        Col1: '',
-                                        Col2: 'CL human',
-                                        Col3: 'mL/min',
-                                        Col4: 'L/hr'
+                                        Col1: 'logCLhuman',
+                                        Col2: 'CL human mL/min/kg',
+                                        Col3: 'CL human mL/min',
+                                        Col4: 'CL human'
                                     },
                                     // 第二行：可输入的值
                                     {
-                                        Col1: '',
+                                        Col1: calculateLogCLHuman(mainData),
                                         Col2: null,
                                         Col3: null,
                                         Col4: null
                                     }
                                 ];
+                                
+                                // 自动计算B2, C2, D2的值
+                                const logCLHuman = parseFloat(clHumanData[1].Col1);
+                                if (!isNaN(logCLHuman)) {
+                                    const b2 = Math.pow(10, logCLHuman);  // B2 = 10^A2
+                                    const c2 = b2 * 60;  // C2 = B2 * 60
+                                    const d2 = c2 * 0.06;  // D2 = C2 * 0.06
+                                    
+                                    clHumanData[1].Col2 = b2;
+                                    clHumanData[1].Col3 = c2;
+                                    clHumanData[1].Col4 = d2;
+                                }
 
                                 // 创建两个表格的HTML
                                 let tablesHtml = '<div style="margin-bottom: 20px;">';
@@ -584,6 +595,12 @@
                                 tablesHtml += '</div>';
                                 
                                 document.getElementById('tableContainer').innerHTML = tablesHtml;
+
+                                // 存储数据到全局变量
+                                currentWajimData = {
+                                    mainData: mainData,
+                                    clHumanData: clHumanData
+                                };
 
                                 // 更新图表（使用主数据）
                                 updateChart(mainData, filename);
@@ -1307,7 +1324,7 @@
             if (!data || data.length === 0) return '<p>No data available</p>';
 
             let table = '<table><thead><tr><th></th>';
-            const headers = Object.keys(data[0]);
+            const headers = ['Col1', 'Col2', 'Col3', 'Col4'];
             headers.forEach((header, colIndex) => {
                 const colLabel = getColumnLabel(colIndex);
                 table += `<th><div class="cell-position">${colLabel}</div></th>`;
@@ -1320,7 +1337,12 @@
                     const value = row[header];
                     const cellPosition = `${getColumnLabel(colIndex)}${rowIndex + 1}`;
                     
-                    if (rowIndex === 1) {  // 第二行是可编辑的
+                    if (rowIndex === 0) {  // 第一行是标题
+                        table += `<td>
+                            <div class="cell-position">${cellPosition}</div>
+                            ${value || ''}
+                        </td>`;
+                    } else if (colIndex === 0) {  // A2是可编辑的
                         table += `<td>
                             <div class="cell-position">${cellPosition}</div>
                             <input type="number" 
@@ -1330,10 +1352,14 @@
                                 onchange="updateCLHumanValue(${colIndex}, this.value)"
                             />
                         </td>`;
-                    } else {  // 第一行是标题
+                    } else {  // B2, C2, D2是计算结果
+                        let displayValue = '';
+                        if (value !== null && value !== undefined) {
+                            displayValue = typeof value === 'number' ? value.toFixed(4) : value;
+                        }
                         table += `<td>
                             <div class="cell-position">${cellPosition}</div>
-                            ${value || ''}
+                            ${displayValue}
                         </td>`;
                     }
                 });
@@ -1345,9 +1371,58 @@
 
         // 修改更新 CL human 值的函数
         function updateCLHumanValue(colIndex, newValue) {
-            console.log(`Updated column ${colIndex} with value ${newValue}`);
-            // 这里可以添加值更新后的处理逻辑，比如计算其他列的值
-            // 例如，如果输入了 mL/min/kg，可以自动计算 mL/min 和 L/hr
+            if (!currentWajimData) {
+                // 如果currentWajimData不存在，初始化它
+                currentWajimData = {
+                    mainData: [
+                        { Parameter: 'CLrat', Value: 6.20 },
+                        { Parameter: 'CLdog', Value: 2.15 },
+                        { Parameter: 'MW', Value: 614 },
+                        { Parameter: 'Ha', Value: 12 }
+                    ],
+                    clHumanData: [
+                        {
+                            Col1: 'logCLhuman',
+                            Col2: 'CL human mL/min/kg',
+                            Col3: 'CL human mL/min',
+                            Col4: 'CL human'
+                        },
+                        {
+                            Col1: null,
+                            Col2: null,
+                            Col3: null,
+                            Col4: null
+                        }
+                    ]
+                };
+            }
+
+            const value = parseFloat(newValue);
+            if (!isNaN(value)) {
+                // 更新A2的值
+                currentWajimData.clHumanData[1].Col1 = value;
+                
+                // 计算B2, C2, D2的值
+                const logCLHuman = parseFloat(value);
+                const b2 = Math.pow(10, logCLHuman);  // B2 = 10^A2
+                const c2 = b2 * 60;  // C2 = B2 * 60
+                const d2 = c2 * 0.06;  // D2 = C2 * 0.06
+                
+                // 更新表格中的值
+                currentWajimData.clHumanData[1].Col2 = b2;
+                currentWajimData.clHumanData[1].Col3 = c2;
+                currentWajimData.clHumanData[1].Col4 = d2;
+                
+                // 更新显示
+                document.getElementById('tableContainer').innerHTML = `
+                    <div style="margin-bottom: 20px;">
+                        <h3>Main Parameters</h3>
+                        ${createTableHtml(currentWajimData.mainData)}
+                        <h3 style="margin-top: 20px;">CL Human Values</h3>
+                        ${createEditableTableHtml(currentWajimData.clHumanData)}
+                    </div>
+                `;
+            }
         }
 
         // 添加新的函数来创建特殊的Allometry表格
@@ -1954,6 +2029,27 @@
                     </div>
                 </div>
             `;
+        }
+
+        // 添加计算 logCLhuman 的函数
+        function calculateLogCLHuman(mainData) {
+            // 获取所需的值
+            const clrat = mainData.find(row => row.Parameter === 'CLrat')?.Value || 0;
+            const cldog = mainData.find(row => row.Parameter === 'CLdog')?.Value || 0;
+            const mw = mainData.find(row => row.Parameter === 'MW')?.Value || 0;
+            const ha = mainData.find(row => row.Parameter === 'Ha')?.Value || 0;
+
+            // 计算 logCLhuman
+            const result = 0.433 * Math.log10(clrat) + 
+                          1 * Math.log10(cldog) - 
+                          0.00627 * mw + 
+                          0.189 * ha - 
+                          0.00111 * Math.log10(cldog) * mw + 
+                          0.0000144 * mw * mw - 
+                          0.0004 * mw * ha - 
+                          0.707;
+
+            return result.toFixed(4);
         }
     </script>
 </body>
