@@ -148,33 +148,72 @@
                             mainTableColumns.forEach(column => {
                                 if (column === 'Animal') {
                                     rowData[column] = animal;
-                                } else if (column === 'Body Weight (kg)' || column === 'Brain Weight (kg)') {
-                                    rowData[column] = 1;  // 默认值设为1
+                                } else if (column === 'Body Weight (kg)') {
+                                    // 设置固定的 Body Weight 值
+                                    switch(animal) {
+                                        case 'Mouse': rowData[column] = 0.025; break;
+                                        case 'Rat': rowData[column] = 0.3; break;
+                                        case 'Dog': rowData[column] = 10; break;
+                                        case 'Monkey': rowData[column] = 5; break;
+                                        default: rowData[column] = 60; break;
+                                    }
+                                } else if (column === 'Brain Weight (kg)') {
+                                    // 计算 Brain Weight
+                                    const bodyWeight = rowData['Body Weight (kg)'];
+                                    switch(animal) {
+                                        case 'Mouse': rowData[column] = bodyWeight * 1.65/100; break;
+                                        case 'Rat': rowData[column] = bodyWeight * 0.57/100; break;
+                                        case 'Dog': rowData[column] = bodyWeight * 0.78/100; break;
+                                        case 'Monkey': rowData[column] = bodyWeight * 1.56/100; break;
+                                        default: rowData[column] = bodyWeight * 2/100; break;
+                                    }
+                                } else if (column === 'MLP (years)') {
+                                    // 计算 MLP
+                                    const bodyWeight = rowData['Body Weight (kg)'];
+                                    const brainWeight = rowData['Brain Weight (kg)'];
+                                    if (bodyWeight && brainWeight) {
+                                        rowData[column] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
+                                    }
                                 } else if (column === 'Fu') {
-                                    // 设置M列的值
-                                    switch(index) {
-                                        case 0: rowData[column] = 0.05;   // Mouse
-                                        break;
-                                        case 1: rowData[column] = 0.02;   // Rat
-                                        break;
-                                        case 2: rowData[column] = 0.03;   // Dog
-                                        break;
-                                        case 3: rowData[column] = 0.05;   // Monkey
-                                        break;
-                                        case 4: rowData[column] = 0.01;   // Human
-                                        break;
+                                    // 设置Fu的值
+                                    switch(animal) {
+                                        case 'Mouse': rowData[column] = 0.05; break;
+                                        case 'Rat': rowData[column] = 0.02; break;
+                                        case 'Dog': rowData[column] = 0.03; break;
+                                        case 'Monkey': rowData[column] = 0.05; break;
+                                        case 'Human': rowData[column] = 0.01; break;
                                     }
                                 } else if (column === 'Cl(L/h)') {
-                                    // 设置K23-K26的值
-                                    if (index === 0) rowData[column] = 0.003288;  // K23 (Mouse)
-                                    else if (index === 1) rowData[column] = 0.07;  // K24 (Rat)
-                                    else if (index === 2) rowData[column] = 0.62;  // K25 (Dog)
-                                    else if (index === 3) rowData[column] = 1.166;  // K26 (Monkey)
-                                    else rowData[column] = null;
+                                    // 设置Cl(L/h)的值
+                                    switch(animal) {
+                                        case 'Mouse': rowData[column] = 0.003288; break;
+                                        case 'Rat': rowData[column] = 0.07; break;
+                                        case 'Dog': rowData[column] = 0.62; break;
+                                        case 'Monkey': rowData[column] = 1.166; break;
+                                        default: rowData[column] = null; break;
+                                    }
                                 } else {
                                     rowData[column] = null;
                                 }
                             });
+
+                            // 计算其他列的值
+                            if (rowData['Cl(L/h)'] && rowData['MLP (years)']) {
+                                rowData['CL*MLP'] = rowData['Cl(L/h)'] * rowData['MLP (years)'];
+                            }
+                            if (rowData['Cl(L/h)'] && rowData['Brain Weight (kg)']) {
+                                rowData['CL*BrW'] = rowData['Cl(L/h)'] * rowData['Brain Weight (kg)'];
+                            }
+                            if (rowData['Cl(L/h)'] && rowData['Fu']) {
+                                rowData['CL/Fu'] = rowData['Cl(L/h)'] / rowData['Fu'];
+                            }
+                            if (rowData['CL/Fu'] && rowData['MLP (years)']) {
+                                rowData['CL/Fu*MLP'] = rowData['CL/Fu'] * rowData['MLP (years)'];
+                            }
+                            if (rowData['CL/Fu'] && rowData['Brain Weight (kg)']) {
+                                rowData['CL/Fu*BrW'] = rowData['CL/Fu'] * rowData['Brain Weight (kg)'];
+                            }
+
                             mainData.push(rowData);
                         });
 
@@ -184,22 +223,16 @@
                             mainTableColumns.forEach(column => {
                                 if (column === 'Animal') {
                                     rowData[column] = 'Human';
-                                } else if (column === 'Body Weight (kg)' || column === 'Brain Weight (kg)') {
-                                    rowData[column] = 1;  // 默认值设为1
+                                } else if (column === 'Body Weight (kg)') {
+                                    rowData[column] = 60;
+                                } else if (column === 'Brain Weight (kg)') {
+                                    rowData[column] = 60 * 2/100;
+                                } else if (column === 'MLP (years)') {
+                                    const bodyWeight = 60;
+                                    const brainWeight = 60 * 2/100;
+                                    rowData[column] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
                                 } else if (column === 'Fu') {
-                                    // 设置后5行Human的Fu值
-                                    switch(i) {
-                                        case 0: rowData[column] = 0.02;
-                                        break;
-                                        case 1: rowData[column] = 0.01;
-                                        break;
-                                        case 2: rowData[column] = 0.01;
-                                        break;
-                                        case 3: rowData[column] = 0.01;
-                                        break;
-                                        case 4: rowData[column] = 0.01;
-                                        break;
-                                    }
+                                    rowData[column] = 0.01;
                                 } else {
                                     rowData[column] = null;
                                 }
@@ -208,63 +241,47 @@
                         }
 
                         // 处理第二个表的数据（对数值表）
-                        const logData = [
-                            {
-                                'Item': 'Mouse',
-                                'Log BW': null,
-                                'if 0.55＜b ≤0.71': null,
-                                'if 0.71＜b ≤1': null,
-                                'if 1＜b ≤1.3': null,
-                                'log CL*BrW': null,
-                                'log CL/Fu': null,
-                                'log CL/Fu*MLP': null,
-                                'log CL/Fu*BrW': null
-                            },
-                            {
-                                'Item': 'Rat',
-                                'Log BW': null,
-                                'if 0.55＜b ≤0.71': null,
-                                'if 0.71＜b ≤1': null,
-                                'if 1＜b ≤1.3': null,
-                                'log CL*BrW': null,
-                                'log CL/Fu': null,
-                                'log CL/Fu*MLP': null,
-                                'log CL/Fu*BrW': null
-                            },
-                            {
-                                'Item': 'Dog',
-                                'Log BW': null,
-                                'if 0.55＜b ≤0.71': null,
-                                'if 0.71＜b ≤1': null,
-                                'if 1＜b ≤1.3': null,
-                                'log CL*BrW': null,
-                                'log CL/Fu': null,
-                                'log CL/Fu*MLP': null,
-                                'log CL/Fu*BrW': null
-                            },
-                            {
-                                'Item': 'Monkey',
-                                'Log BW': null,
-                                'if 0.55＜b ≤0.71': null,
-                                'if 0.71＜b ≤1': null,
-                                'if 1＜b ≤1.3': null,
-                                'log CL*BrW': null,
-                                'log CL/Fu': null,
-                                'log CL/Fu*MLP': null,
-                                'log CL/Fu*BrW': null
-                            },
-                            {
-                                'Item': 'Human',
-                                'Log BW': null,
-                                'if 0.55＜b ≤0.71': null,
-                                'if 0.71＜b ≤1': null,
-                                'if 1＜b ≤1.3': null,
-                                'log CL*BrW': null,
-                                'log CL/Fu': null,
-                                'log CL/Fu*MLP': null,
-                                'log CL/Fu*BrW': null
+                        const logData = animals.map(animal => ({
+                            'Item': animal,
+                            'Log BW': null,
+                            'if 0.55＜b ≤0.71': null,
+                            'if 0.71＜b ≤1': null,
+                            'if 1＜b ≤1.3': null,
+                            'log CL*BrW': null,
+                            'log CL/Fu': null,
+                            'log CL/Fu*MLP': null,
+                            'log CL/Fu*BrW': null
+                        }));
+
+                        // 初始化对数表的值
+                        mainData.forEach((mainRow, index) => {
+                            if (index < logData.length) {
+                                const logRow = logData[index];
+                                
+                                if (mainRow['Body Weight (kg)'] > 0) {
+                                    logRow['Log BW'] = Math.log10(mainRow['Body Weight (kg)']);
+                                }
+                                if (mainRow['Cl(L/h)'] > 0) {
+                                    logRow['if 0.55＜b ≤0.71'] = Math.log10(mainRow['Cl(L/h)']);
+                                }
+                                if (mainRow['CL*MLP'] > 0) {
+                                    logRow['if 0.71＜b ≤1'] = Math.log10(mainRow['CL*MLP']);
+                                }
+                                if (mainRow['CL*BrW'] > 0) {
+                                    logRow['if 1＜b ≤1.3'] = Math.log10(mainRow['CL*BrW']);
+                                    logRow['log CL*BrW'] = Math.log10(mainRow['CL*BrW']);
+                                }
+                                if (mainRow['CL/Fu'] > 0) {
+                                    logRow['log CL/Fu'] = Math.log10(mainRow['CL/Fu']);
+                                }
+                                if (mainRow['CL/Fu*MLP'] > 0) {
+                                    logRow['log CL/Fu*MLP'] = Math.log10(mainRow['CL/Fu*MLP']);
+                                }
+                                if (mainRow['CL/Fu*BrW'] > 0) {
+                                    logRow['log CL/Fu*BrW'] = Math.log10(mainRow['CL/Fu*BrW']);
+                                }
                             }
-                        ];
+                        });
 
                         // 创建两个表格的HTML
                         let tablesHtml = '<div style="margin-bottom: 20px;">';
@@ -276,6 +293,14 @@
                         // 第二个表格
                         tablesHtml += '<h3 style="margin-top: 20px;">Logarithmic Values</h3>';
                         tablesHtml += createTableHtml(logData);
+                        
+                        // 添加拟合图按钮
+                        tablesHtml += '<div style="margin-top: 20px; text-align: center;">';
+                        tablesHtml += '<button class="csv-button" onclick="plotFitting1()">拟合图1</button>';
+                        tablesHtml += '<button class="csv-button" onclick="plotFitting2()">拟合图2</button>';
+                        tablesHtml += '<button class="csv-button" onclick="plotFitting3()">拟合图3</button>';
+                        tablesHtml += '<button class="csv-button" onclick="plotFitting4()">拟合图4</button>';
+                        tablesHtml += '</div>';
                         
                         tablesHtml += '</div>';
                         
@@ -1049,21 +1074,72 @@
             });
             table += '</tr></thead><tbody>';
 
+            // 创建数据行，从37开始编号
             data.forEach((row, rowIndex) => {
-                const actualRowNumber = rowIndex + 23;  // 行号从23开始
+                const actualRowNumber = rowIndex + 37;  // 行号从37开始
                 table += `<tr><td class="row-header">${actualRowNumber}</td>`;
                 headers.forEach((header, colIndex) => {
                     const value = row[header];
-                    const cellPosition = `${getColumnLabel(colIndex)}${actualRowNumber}`;  // 使用新的行号
+                    const cellPosition = `${getColumnLabel(colIndex)}${actualRowNumber}`;
                     let formattedValue = '';
-                    if (typeof value === 'number' && !isNaN(value)) {
-                        formattedValue = value.toFixed(4);
-                    } else if (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!') {
-                        formattedValue = 'N/A';
+                    
+                    // 计算对数值
+                    if (header !== 'Item' && currentAllometryData && currentAllometryData.mainData) {
+                        const mainRow = currentAllometryData.mainData[rowIndex];
+                        if (mainRow) {
+                            switch(header) {
+                                case 'Log BW':
+                                    if (mainRow['Body Weight (kg)'] > 0) {
+                                        formattedValue = Math.log10(mainRow['Body Weight (kg)']).toFixed(4);
+                                        row[header] = parseFloat(formattedValue);
+                                    }
+                                    break;
+                                case 'if 0.55＜b ≤0.71':
+                                    if (mainRow['Cl(L/h)'] > 0) {
+                                        formattedValue = Math.log10(mainRow['Cl(L/h)']).toFixed(4);
+                                        row[header] = parseFloat(formattedValue);
+                                    }
+                                    break;
+                                case 'if 0.71＜b ≤1':
+                                    if (mainRow['CL*MLP'] > 0) {
+                                        formattedValue = Math.log10(mainRow['CL*MLP']).toFixed(4);
+                                        row[header] = parseFloat(formattedValue);
+                                    }
+                                    break;
+                                case 'if 1＜b ≤1.3':
+                                case 'log CL*BrW':
+                                    if (mainRow['CL*BrW'] > 0) {
+                                        formattedValue = Math.log10(mainRow['CL*BrW']).toFixed(4);
+                                        row[header] = parseFloat(formattedValue);
+                                    }
+                                    break;
+                                case 'log CL/Fu':
+                                    if (mainRow['CL/Fu'] > 0) {
+                                        formattedValue = Math.log10(mainRow['CL/Fu']).toFixed(4);
+                                        row[header] = parseFloat(formattedValue);
+                                    }
+                                    break;
+                                case 'log CL/Fu*MLP':
+                                    if (mainRow['CL/Fu*MLP'] > 0) {
+                                        formattedValue = Math.log10(mainRow['CL/Fu*MLP']).toFixed(4);
+                                        row[header] = parseFloat(formattedValue);
+                                    }
+                                    break;
+                                case 'log CL/Fu*BrW':
+                                    if (mainRow['CL/Fu*BrW'] > 0) {
+                                        formattedValue = Math.log10(mainRow['CL/Fu*BrW']).toFixed(4);
+                                        row[header] = parseFloat(formattedValue);
+                                    }
+                                    break;
+                                default:
+                                    formattedValue = value || '';
+                            }
+                        }
                     } else {
                         formattedValue = value || '';
                     }
-                    table += `<td>
+
+                    table += `<td class="output-cell">
                         <div class="cell-position">${cellPosition}</div>
                         ${formattedValue}
                     </td>`;
@@ -1144,14 +1220,50 @@
                     const value = row[header];
                     const cellPosition = `${getColumnLabel(colIndex)}${actualRowNumber}`;  // 使用新的行号
                     
-                    // B列(index 1)和G列(index 6)是常量
-                    if (colIndex === 1 || colIndex === 6) {
-                        // 常量列 - 只显示值，不可编辑
+                    // Body Weight (kg)列使用固定值
+                    if (header === 'Body Weight (kg)') {
+                        let fixedValue;
+                        switch(actualRowNumber) {
+                            case 23: fixedValue = 0.025; break;  // Mouse
+                            case 24: fixedValue = 0.3; break;    // Rat
+                            case 25: fixedValue = 10; break;     // Dog
+                            case 26: fixedValue = 5; break;      // Monkey
+                            default: fixedValue = 60; break;     // Human (27-32)
+                        }
                         table += `<td class="constant-cell">
+                            <div class="cell-position">${cellPosition}</div>
+                            ${fixedValue.toFixed(4)}
+                        </td>`;
+                        row[header] = fixedValue;  // 更新数据
+                        
+                        // 同时计算Brain Weight
+                        if (header === 'Body Weight (kg)') {
+                            switch(row['Animal']) {
+                                case 'Mouse':
+                                    row['Brain Weight (kg)'] = fixedValue * 1.65/100;
+                                    break;
+                                case 'Rat':
+                                    row['Brain Weight (kg)'] = fixedValue * 0.57/100;
+                                    break;
+                                case 'Dog':
+                                    row['Brain Weight (kg)'] = fixedValue * 0.78/100;
+                                    break;
+                                case 'Monkey':
+                                    row['Brain Weight (kg)'] = fixedValue * 1.56/100;
+                                    break;
+                                case 'Human':
+                                    row['Brain Weight (kg)'] = fixedValue * 2/100;
+                                    break;
+                            }
+                        }
+                    }
+                    // Brain Weight (kg)列显示计算结果
+                    else if (header === 'Brain Weight (kg)') {
+                        table += `<td class="output-cell">
                             <div class="cell-position">${cellPosition}</div>
                             ${typeof value === 'number' ? value.toFixed(4) : (value || '')}
                         </td>`;
-                    } 
+                    }
                     // Animal列不可编辑
                     else if (header === 'Animal') {
                         table += `<td>
@@ -1160,7 +1272,7 @@
                         </td>`;
                     }
                     // 用户输入值列
-                    else if (header === 'Body Weight (kg)' || header === 'Brain Weight (kg)' || header === 'Fu') {
+                    else if (header === 'Fu') {
                         table += `<td class="input-cell">
                             <div class="cell-position">${cellPosition}</div>
                             <input type="number" 
@@ -1195,104 +1307,152 @@
             if (!isNaN(value)) {
                 row[header] = value;
                 
-                // 更新计算值
-                const bodyWeight = row['Body Weight (kg)'];      // H列
-                const brainWeight = row['Brain Weight (kg)'];    // I列
-                const cl = row['Cl(L/h)'];                      // K列
-                const fu = row['Fu'];                           // M列
-                const mlp = row['MLP (years)'];                 // J列
-
-                // 计算 MLP (J列)
-                // J = 185.4 * (I^0.636) * (H^-0.225)
-                if (brainWeight && bodyWeight) {
-                    row['MLP (years)'] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
-                }
-
-                // 计算 CL*MLP (N列)
-                // N = K * J
-                if (cl && row['MLP (years)']) {
-                    row['CL*MLP'] = cl * row['MLP (years)'];
-                }
-
-                // 计算 CL*BrW (O列)
-                // O = K * I
-                if (cl && brainWeight) {
-                    row['CL*BrW'] = cl * brainWeight;
-                }
-
-                // 计算 CL/Fu (P列)
-                // P = K / M
-                if (cl && fu) {
-                    row['CL/Fu'] = cl / fu;
-                }
-
-                // 计算 CL/Fu*MLP (Q列)
-                // Q = P * J
-                if (row['CL/Fu'] && row['MLP (years)']) {
-                    row['CL/Fu*MLP'] = row['CL/Fu'] * row['MLP (years)'];
-                }
-
-                // 计算 CL/Fu*BrW (R列)
-                // R = P * I
-                if (row['CL/Fu'] && brainWeight) {
-                    row['CL/Fu*BrW'] = row['CL/Fu'] * brainWeight;
-                }
-
-                // 特定单元格的计算
-                // 注意：rowIndex 5 对应行号28，因为我们从23开始计数
-                if (currentAllometryData.logData && currentAllometryData.logData[4]) {  // Human的log数据
-                    const logData = currentAllometryData.logData[4];  // Human行的数据
-                    
-                    // N28 = 10^J41
-                    if (rowIndex === 5) {
-                        if (logData['if 0.55＜b ≤0.71'] !== null) {
-                            row['CL*MLP'] = Math.pow(10, logData['if 0.55＜b ≤0.71']);
+                // 更新所有行的计算
+                currentAllometryData.mainData.forEach((currentRow, currentRowIndex) => {
+                    // 计算 Brain Weight (I列)
+                    if (header === 'Body Weight (kg)') {
+                        const bodyWeight = currentRow['Body Weight (kg)'];
+                        if (bodyWeight) {
+                            switch(currentRow['Animal']) {
+                                case 'Mouse':
+                                    currentRow['Brain Weight (kg)'] = bodyWeight * 1.65/100;
+                                    break;
+                                case 'Rat':
+                                    currentRow['Brain Weight (kg)'] = bodyWeight * 0.57/100;
+                                    break;
+                                case 'Dog':
+                                    currentRow['Brain Weight (kg)'] = bodyWeight * 0.78/100;
+                                    break;
+                                case 'Monkey':
+                                    currentRow['Brain Weight (kg)'] = bodyWeight * 1.56/100;
+                                    break;
+                                case 'Human':
+                                    currentRow['Brain Weight (kg)'] = bodyWeight * 2/100;
+                                    break;
+                            }
                         }
                     }
-                    
-                    // O29 = 10^K41
-                    if (rowIndex === 6) {
-                        if (logData['if 0.71＜b ≤1'] !== null) {
-                            row['CL*BrW'] = Math.pow(10, logData['if 0.71＜b ≤1']);
+
+                    // 计算 MLP (J列)
+                    const bodyWeight = currentRow['Body Weight (kg)'];
+                    const brainWeight = currentRow['Brain Weight (kg)'];
+                    if (bodyWeight && brainWeight) {
+                        currentRow['MLP (years)'] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
+                    }
+
+                    // 获取基础值
+                    const mlp = currentRow['MLP (years)'];
+                    const cl = currentRow['Cl(L/h)'];
+                    const fu = currentRow['Fu'];
+
+                    // 计算 CL*MLP (N列)
+                    if (cl && mlp) {
+                        currentRow['CL*MLP'] = cl * mlp;
+                    }
+
+                    // 计算 CL*BrW (O列)
+                    if (cl && brainWeight) {
+                        currentRow['CL*BrW'] = cl * brainWeight;
+                    }
+
+                    // 计算 CL/Fu (P列)
+                    if (cl && fu) {
+                        currentRow['CL/Fu'] = cl / fu;
+                    }
+
+                    // 计算 CL/Fu*MLP (Q列)
+                    if (currentRow['CL/Fu'] && mlp) {
+                        currentRow['CL/Fu*MLP'] = currentRow['CL/Fu'] * mlp;
+                    }
+
+                    // 计算 CL/Fu*BrW (R列)
+                    if (currentRow['CL/Fu'] && brainWeight) {
+                        currentRow['CL/Fu*BrW'] = currentRow['CL/Fu'] * brainWeight;
+                    }
+                });
+
+                // 特殊计算（Human rows）
+                if (currentAllometryData.logData && currentAllometryData.logData[4]) {
+                    const logData = currentAllometryData.logData[4];  // Human的log数据
+                    const mainData = currentAllometryData.mainData;
+
+                    // K27 (Human第一行): 10^I41
+                    if (logData['log CL'] !== null) {
+                        mainData[4]['Cl(L/h)'] = Math.pow(10, logData['log CL']);
+                    }
+
+                    // K28: N28/J28
+                    if (mainData[5] && mainData[5]['CL*MLP'] && mainData[5]['MLP (years)']) {
+                        mainData[5]['Cl(L/h)'] = mainData[5]['CL*MLP'] / mainData[5]['MLP (years)'];
+                    }
+
+                    // K29: O29/I29
+                    if (mainData[6] && mainData[6]['CL*BrW'] && mainData[6]['Brain Weight (kg)']) {
+                        mainData[6]['Cl(L/h)'] = mainData[6]['CL*BrW'] / mainData[6]['Brain Weight (kg)'];
+                    }
+
+                    // K30: P30*M30
+                    if (mainData[7] && mainData[7]['CL/Fu'] && mainData[7]['Fu']) {
+                        mainData[7]['Cl(L/h)'] = mainData[7]['CL/Fu'] * mainData[7]['Fu'];
+                    }
+
+                    // K31: P31/M31
+                    if (mainData[8] && mainData[8]['CL/Fu'] && mainData[8]['Fu']) {
+                        mainData[8]['Cl(L/h)'] = mainData[8]['CL/Fu'] / mainData[8]['Fu'];
+                    }
+
+                    // K32: P32*M30
+                    if (mainData[9] && mainData[9]['CL/Fu'] && mainData[7] && mainData[7]['Fu']) {
+                        mainData[9]['Cl(L/h)'] = mainData[9]['CL/Fu'] * mainData[7]['Fu'];
+                    }
+                }
+
+                // 更新对数表的值
+                currentAllometryData.mainData.forEach((mainRow, index) => {
+                    if (index < currentAllometryData.logData.length) {
+                        const logRow = currentAllometryData.logData[index];
+                        
+                        // 更新Log BW
+                        if (mainRow['Body Weight (kg)'] > 0) {
+                            logRow['Log BW'] = Math.log10(mainRow['Body Weight (kg)']);
+                        }
+                        
+                        // 更新if 0.55＜b ≤0.71
+                        if (mainRow['Cl(L/h)'] > 0) {
+                            logRow['if 0.55＜b ≤0.71'] = Math.log10(mainRow['Cl(L/h)']);
+                        }
+                        
+                        // 更新if 0.71＜b ≤1
+                        if (mainRow['CL*MLP'] > 0) {
+                            logRow['if 0.71＜b ≤1'] = Math.log10(mainRow['CL*MLP']);
+                        }
+                        
+                        // 更新if 1＜b ≤1.3
+                        if (mainRow['CL*BrW'] > 0) {
+                            logRow['if 1＜b ≤1.3'] = Math.log10(mainRow['CL*BrW']);
+                        }
+                        
+                        // 更新log CL*BrW
+                        if (mainRow['CL*BrW'] > 0) {
+                            logRow['log CL*BrW'] = Math.log10(mainRow['CL*BrW']);
+                        }
+                        
+                        // 更新log CL/Fu
+                        if (mainRow['CL/Fu'] > 0) {
+                            logRow['log CL/Fu'] = Math.log10(mainRow['CL/Fu']);
+                        }
+                        
+                        // 更新log CL/Fu*MLP
+                        if (mainRow['CL/Fu*MLP'] > 0) {
+                            logRow['log CL/Fu*MLP'] = Math.log10(mainRow['CL/Fu*MLP']);
+                        }
+                        
+                        // 更新log CL/Fu*BrW
+                        if (mainRow['CL/Fu*BrW'] > 0) {
+                            logRow['log CL/Fu*BrW'] = Math.log10(mainRow['CL/Fu*BrW']);
                         }
                     }
-                    
-                    // P30 = 10^L41
-                    if (rowIndex === 7) {
-                        if (logData['if 1＜b ≤1.3'] !== null) {
-                            row['CL/Fu'] = Math.pow(10, logData['if 1＜b ≤1.3']);
-                        }
-                    }
-                }
-
-                // P31 = Q31/J31
-                if (rowIndex === 8) {
-                    if (row['CL/Fu*MLP'] && row['MLP (years)']) {
-                        row['CL/Fu'] = row['CL/Fu*MLP'] / row['MLP (years)'];
-                    }
-                }
-
-                // P32 = R32/I30
-                if (rowIndex === 9) {
-                    const row30 = currentAllometryData.mainData[7];  // 索引7对应行号30
-                    if (row['CL/Fu*BrW'] && row30 && row30['Brain Weight (kg)']) {
-                        row['CL/Fu'] = row['CL/Fu*BrW'] / row30['Brain Weight (kg)'];
-                    }
-                }
-
-                // Q31 = 10^M41
-                if (rowIndex === 8) {
-                    if (logData['log CL/Fu*MLP'] !== null) {
-                        row['CL/Fu*MLP'] = Math.pow(10, logData['log CL/Fu*MLP']);
-                    }
-                }
-
-                // R32 = 10^N41
-                if (rowIndex === 9) {
-                    if (logData['log CL/Fu*BrW'] !== null) {
-                        row['CL/Fu*BrW'] = Math.pow(10, logData['log CL/Fu*BrW']);
-                    }
-                }
+                });
 
                 // 更新显示
                 document.getElementById('tableContainer').innerHTML = `
@@ -1301,10 +1461,144 @@
                         ${createAllometryTableHtml(currentAllometryData.mainData)}
                         <h3 style="margin-top: 20px;">Logarithmic Values</h3>
                         ${createTableHtml(currentAllometryData.logData)}
+                        <div style="margin-top: 20px; text-align: center;">
+                            <button class="csv-button" onclick="plotFitting1()">拟合图1</button>
+                            <button class="csv-button" onclick="plotFitting2()">拟合图2</button>
+                            <button class="csv-button" onclick="plotFitting3()">拟合图3</button>
+                            <button class="csv-button" onclick="plotFitting4()">拟合图4</button>
+                        </div>
                     </div>
                 `;
                 updateChart(currentAllometryData.mainData, 'Allometry-CL.csv');
             }
+        }
+
+        // 添加通用的绘制拟合图函数
+        function plotFittingGeneral(xColumn, yColumn, chartTitle) {
+            if (!currentAllometryData || !currentAllometryData.logData) {
+                console.error('No data available for plotting');
+                return;
+            }
+
+            // 获取数据点
+            const data = currentAllometryData.logData;
+            const xValues = [];
+            const yValues = [];
+
+            // 获取I37:I40和指定Y列的数据
+            for (let i = 0; i < 4; i++) {  // 4行数据
+                const xValue = data[i][xColumn];  // I列 (Log BW)
+                const yValue = data[i][yColumn];  // 指定的Y列
+                if (xValue !== null && yValue !== null) {
+                    xValues.push(xValue);
+                    yValues.push(yValue);
+                }
+            }
+
+            // 计算线性回归
+            const n = xValues.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            for (let i = 0; i < n; i++) {
+                sumX += xValues[i];
+                sumY += yValues[i];
+                sumXY += xValues[i] * yValues[i];
+                sumX2 += xValues[i] * xValues[i];
+            }
+            
+            // 计算斜率和截距
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+
+            // 创建拟合线的数据点
+            const minX = Math.min(...xValues);
+            const maxX = Math.max(...xValues);
+            const fitX = [minX, maxX];
+            const fitY = fitX.map(x => slope * x + intercept);
+
+            // 销毁现有图表
+            if (currentChart) {
+                currentChart.destroy();
+            }
+
+            // 创建新图表
+            const ctx = document.getElementById('myChart').getContext('2d');
+            currentChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: '数据点',
+                            data: xValues.map((x, i) => ({x: x, y: yValues[i]})),
+                            backgroundColor: 'rgb(0, 0, 255)',
+                            pointStyle: 'circle',
+                            pointRadius: 6,
+                            showLine: false
+                        },
+                        {
+                            label: '拟合曲线',
+                            data: fitX.map((x, i) => ({x: x, y: fitY[i]})),
+                            backgroundColor: 'rgb(255, 0, 0)',
+                            borderColor: 'rgb(255, 0, 0)',
+                            pointStyle: 'line',
+                            pointRadius: 0,
+                            showLine: true,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: chartTitle,
+                            font: { size: 16 },
+                            padding: { top: 10, bottom: 30 }
+                        },
+                        subtitle: {
+                            display: true,
+                            text: `y = ${slope.toFixed(3)}x + ${intercept.toFixed(3)}`,
+                            font: { size: 14 },
+                            padding: { bottom: 10 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Log BW'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: yColumn
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 滚动到图表位置
+            document.getElementById('chartContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // 修改plotFitting1函数使用通用函数
+        function plotFitting1() {
+            plotFittingGeneral('Log BW', 'if 0.55＜b ≤0.71', '一次拟合曲线1');
+        }
+
+        // 添加新的拟合图函数
+        function plotFitting2() {
+            plotFittingGeneral('Log BW', 'if 0.71＜b ≤1', '一次拟合曲线2');
+        }
+
+        function plotFitting3() {
+            plotFittingGeneral('Log BW', 'if 1＜b ≤1.3', '一次拟合曲线3');
+        }
+
+        function plotFitting4() {
+            plotFittingGeneral('Log BW', 'log CL*BrW', '一次拟合曲线4');
         }
     </script>
 </body>
