@@ -98,458 +98,541 @@
         let currentAllometryData = null;
 
         function loadCSV(filename) {
-            // 使用当前窗口的主机名和端口号构建服务器URL
-            const serverUrl = `${window.location.protocol}//${window.location.host}/`;
-            console.log('Server URL:', serverUrl);  // 调试输出
+            console.log('尝试加载文件:', filename);
             
-            const config = {
-                download: true,
-                dynamicTyping: true,
-                skipEmptyLines: false,
-                error: function(error) {
-                    console.error('加载错误:', error);
-                    alert('无法加载CSV文件，请确保本地服务器正在运行');
-                }
-            };
-
-            // 对文件名进行编码
-            const encodedFilename = encodeURIComponent(filename);
-            console.log('尝试加载文件:', serverUrl + encodedFilename);
-
-            // 根据不同的文件使用不同的配置
-            switch(filename) {
-                case 'Allometry-CL.csv':
-                    config.header = false;
-                    config.skipEmptyLines = true;
-                    config.complete = function(results) {
-                        // 设置所有12列
-                        const mainTableColumns = [
-                            'Animal',
-                            'Body Weight (kg)',
-                            'Brain Weight (kg)',
-                            'MLP (years)',
-                            'Cl(L/h)',
-                            'Vdss（L）',
-                            'Fu',
-                            'CL*MLP',
-                            'CL*BrW',
-                            'CL/Fu',
-                            'CL/Fu*MLP',
-                            'CL/Fu*BrW'
-                        ];
-
-                        // 处理第一个表的数据
-                        const mainData = [];
-                        const animals = ['Mouse', 'Rat', 'Dog', 'Monkey', 'Human'];
-
-                        // 添加原有的5行数据
-                        animals.forEach((animal, index) => {
-                            const rowData = {};
-                            mainTableColumns.forEach(column => {
-                                if (column === 'Animal') {
-                                    rowData[column] = animal;
-                                } else if (column === 'Body Weight (kg)') {
-                                    // 设置固定的 Body Weight 值
-                                    switch(animal) {
-                                        case 'Mouse': rowData[column] = 0.025; break;
-                                        case 'Rat': rowData[column] = 0.3; break;
-                                        case 'Dog': rowData[column] = 10; break;
-                                        case 'Monkey': rowData[column] = 5; break;
-                                        default: rowData[column] = 60; break;
-                                    }
-                                } else if (column === 'Brain Weight (kg)') {
-                                    // 计算 Brain Weight
-                                    const bodyWeight = rowData['Body Weight (kg)'];
-                                    switch(animal) {
-                                        case 'Mouse': rowData[column] = bodyWeight * 1.65/100; break;
-                                        case 'Rat': rowData[column] = bodyWeight * 0.57/100; break;
-                                        case 'Dog': rowData[column] = bodyWeight * 0.78/100; break;
-                                        case 'Monkey': rowData[column] = bodyWeight * 1.56/100; break;
-                                        default: rowData[column] = bodyWeight * 2/100; break;
-                                    }
-                                } else if (column === 'MLP (years)') {
-                                    // 计算 MLP
-                                    const bodyWeight = rowData['Body Weight (kg)'];
-                                    const brainWeight = rowData['Brain Weight (kg)'];
-                                    if (bodyWeight && brainWeight) {
-                                        rowData[column] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
-                                    }
-                                } else if (column === 'Fu') {
-                                    // 设置Fu的值
-                                    switch(animal) {
-                                        case 'Mouse': rowData[column] = 0.05; break;
-                                        case 'Rat': rowData[column] = 0.02; break;
-                                        case 'Dog': rowData[column] = 0.03; break;
-                                        case 'Monkey': rowData[column] = 0.05; break;
-                                        case 'Human': rowData[column] = 0.01; break;
-                                    }
-                                } else if (column === 'Cl(L/h)') {
-                                    // 设置Cl(L/h)的值
-                                    switch(animal) {
-                                        case 'Mouse': rowData[column] = 0.003288; break;
-                                        case 'Rat': rowData[column] = 0.07; break;
-                                        case 'Dog': rowData[column] = 0.62; break;
-                                        case 'Monkey': rowData[column] = 1.166; break;
-                                        default: rowData[column] = null; break;
-                                    }
-                                } else {
-                                    rowData[column] = null;
-                                }
-                            });
-
-                            // 计算其他列的值
-                            if (rowData['Cl(L/h)'] && rowData['MLP (years)']) {
-                                rowData['CL*MLP'] = rowData['Cl(L/h)'] * rowData['MLP (years)'];
-                            }
-                            if (rowData['Cl(L/h)'] && rowData['Brain Weight (kg)']) {
-                                rowData['CL*BrW'] = rowData['Cl(L/h)'] * rowData['Brain Weight (kg)'];
-                            }
-                            if (rowData['Cl(L/h)'] && rowData['Fu']) {
-                                rowData['CL/Fu'] = rowData['Cl(L/h)'] / rowData['Fu'];
-                            }
-                            if (rowData['CL/Fu'] && rowData['MLP (years)']) {
-                                rowData['CL/Fu*MLP'] = rowData['CL/Fu'] * rowData['MLP (years)'];
-                            }
-                            if (rowData['CL/Fu'] && rowData['Brain Weight (kg)']) {
-                                rowData['CL/Fu*BrW'] = rowData['CL/Fu'] * rowData['Brain Weight (kg)'];
-                            }
-
-                            mainData.push(rowData);
-                        });
-
-                        // 添加新的5行Human数据
-                        for (let i = 0; i < 5; i++) {
-                            const rowData = {};
-                            mainTableColumns.forEach(column => {
-                                if (column === 'Animal') {
-                                    rowData[column] = 'Human';
-                                } else if (column === 'Body Weight (kg)') {
-                                    rowData[column] = 60;
-                                } else if (column === 'Brain Weight (kg)') {
-                                    rowData[column] = 60 * 2/100;
-                                } else if (column === 'MLP (years)') {
-                                    const bodyWeight = 60;
-                                    const brainWeight = 60 * 2/100;
-                                    rowData[column] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
-                                } else if (column === 'Fu') {
-                                    rowData[column] = 0.01;
-                                } else {
-                                    rowData[column] = null;
-                                }
-                            });
-                            mainData.push(rowData);
+            fetch(filename)
+                .then(response => response.text())
+                .then(csvData => {
+                    const config = {
+                        download: false,
+                        dynamicTyping: true,
+                        skipEmptyLines: false,
+                        error: function(error) {
+                            console.error('加载错误:', error);
+                            alert('无法加载CSV文件，请确保文件存在');
                         }
+                    };
 
-                        // 处理第二个表的数据（对数值表）
-                        const logData = animals.map(animal => ({
-                            'Item': animal,
-                            'Log BW': null,
-                            'if 0.55＜b ≤0.71': null,
-                            'if 0.71＜b ≤1': null,
-                            'if 1＜b ≤1.3': null,
-                            'log CL*BrW': null,
-                            'log CL/Fu': null,
-                            'log CL/Fu*MLP': null,
-                            'log CL/Fu*BrW': null
-                        }));
+                    // 根据不同的文件使用不同的配置
+                    switch(filename) {
+                        case 'Allometry-CL.csv':
+                            config.header = false;
+                            config.skipEmptyLines = true;
+                            config.complete = function(results) {
+                                // 设置所有12列
+                                const mainTableColumns = [
+                                    'Animal',
+                                    'Body Weight (kg)',
+                                    'Brain Weight (kg)',
+                                    'MLP (years)',
+                                    'Cl(L/h)',
+                                    'Vdss（L）',
+                                    'Fu',
+                                    'CL*MLP',
+                                    'CL*BrW',
+                                    'CL/Fu',
+                                    'CL/Fu*MLP',
+                                    'CL/Fu*BrW'
+                                ];
 
-                        // 初始化对数表的值
-                        mainData.forEach((mainRow, index) => {
-                            if (index < logData.length) {
-                                const logRow = logData[index];
+                                // 处理第一个表的数据
+                                const mainData = [];
+                                const animals = ['Mouse', 'Rat', 'Dog', 'Monkey', 'Human'];
+
+                                // 添加原有的5行数据
+                                animals.forEach((animal, index) => {
+                                    const rowData = {};
+                                    mainTableColumns.forEach(column => {
+                                        if (column === 'Animal') {
+                                            rowData[column] = animal;
+                                        } else if (column === 'Body Weight (kg)') {
+                                            // 设置固定的 Body Weight 值
+                                            switch(animal) {
+                                                case 'Mouse': rowData[column] = 0.025; break;
+                                                case 'Rat': rowData[column] = 0.3; break;
+                                                case 'Dog': rowData[column] = 10; break;
+                                                case 'Monkey': rowData[column] = 5; break;
+                                                default: rowData[column] = 60; break;
+                                            }
+                                        } else if (column === 'Brain Weight (kg)') {
+                                            // 计算 Brain Weight
+                                            const bodyWeight = rowData['Body Weight (kg)'];
+                                            switch(animal) {
+                                                case 'Mouse': rowData[column] = bodyWeight * 1.65/100; break;
+                                                case 'Rat': rowData[column] = bodyWeight * 0.57/100; break;
+                                                case 'Dog': rowData[column] = bodyWeight * 0.78/100; break;
+                                                case 'Monkey': rowData[column] = bodyWeight * 1.56/100; break;
+                                                default: rowData[column] = bodyWeight * 2/100; break;
+                                            }
+                                        } else if (column === 'MLP (years)') {
+                                            // 计算 MLP
+                                            const bodyWeight = rowData['Body Weight (kg)'];
+                                            const brainWeight = rowData['Brain Weight (kg)'];
+                                            if (bodyWeight && brainWeight) {
+                                                rowData[column] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
+                                            }
+                                        } else if (column === 'Fu') {
+                                            // 设置Fu的值
+                                            switch(animal) {
+                                                case 'Mouse': rowData[column] = 0.05; break;
+                                                case 'Rat': rowData[column] = 0.02; break;
+                                                case 'Dog': rowData[column] = 0.03; break;
+                                                case 'Monkey': rowData[column] = 0.05; break;
+                                                case 'Human': rowData[column] = 0.01; break;
+                                            }
+                                        } else if (column === 'Cl(L/h)') {
+                                            // 设置Cl(L/h)的值
+                                            switch(animal) {
+                                                case 'Mouse': rowData[column] = 0.003288; break;
+                                                case 'Rat': rowData[column] = 0.07; break;
+                                                case 'Dog': rowData[column] = 0.62; break;
+                                                case 'Monkey': rowData[column] = 1.166; break;
+                                                default: rowData[column] = null; break;
+                                            }
+                                        } else {
+                                            rowData[column] = null;
+                                        }
+                                    });
+
+                                    // 计算其他列的值
+                                    if (rowData['Cl(L/h)'] && rowData['MLP (years)']) {
+                                        rowData['CL*MLP'] = rowData['Cl(L/h)'] * rowData['MLP (years)'];
+                                    }
+                                    if (rowData['Cl(L/h)'] && rowData['Brain Weight (kg)']) {
+                                        rowData['CL*BrW'] = rowData['Cl(L/h)'] * rowData['Brain Weight (kg)'];
+                                    }
+                                    if (rowData['Cl(L/h)'] && rowData['Fu']) {
+                                        rowData['CL/Fu'] = rowData['Cl(L/h)'] / rowData['Fu'];
+                                    }
+                                    if (rowData['CL/Fu'] && rowData['MLP (years)']) {
+                                        rowData['CL/Fu*MLP'] = rowData['CL/Fu'] * rowData['MLP (years)'];
+                                    }
+                                    if (rowData['CL/Fu'] && rowData['Brain Weight (kg)']) {
+                                        rowData['CL/Fu*BrW'] = rowData['CL/Fu'] * rowData['Brain Weight (kg)'];
+                                    }
+
+                                    mainData.push(rowData);
+                                });
+
+                                // 添加新的5行Human数据
+                                for (let i = 0; i < 5; i++) {
+                                    const rowData = {};
+                                    mainTableColumns.forEach(column => {
+                                        if (column === 'Animal') {
+                                            // 第一行（27行）清空Animal值，其他行保持Human
+                                            rowData[column] = i === 0 ? '' : 'Human';
+                                        } else if (column === 'Body Weight (kg)') {
+                                            rowData[column] = 60;
+                                        } else if (column === 'Brain Weight (kg)') {
+                                            rowData[column] = 60 * 2/100;
+                                        } else if (column === 'MLP (years)') {
+                                            const bodyWeight = 60;
+                                            const brainWeight = 60 * 2/100;
+                                            rowData[column] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
+                                        } else if (column === 'Fu') {
+                                            rowData[column] = 0.01;
+                                        } else {
+                                            rowData[column] = null;
+                                        }
+                                    });
+                                    mainData.push(rowData);
+                                }
+
+                                // 处理第二个表的数据（对数值表）
+                                const logData = animals.map(animal => ({
+                                    'Item': animal,
+                                    'Log BW': null,
+                                    'if 0.55＜b ≤0.71': null,
+                                    'if 0.71＜b ≤1': null,
+                                    'if 1＜b ≤1.3': null,
+                                    'log CL*BrW': null,
+                                    'log CL/Fu': null,
+                                    'log CL/Fu*MLP': null,
+                                    'log CL/Fu*BrW': null
+                                }));
+
+                                // 初始化对数表的值
+                                mainData.forEach((mainRow, index) => {
+                                    if (index < logData.length) {
+                                        const logRow = logData[index];
+                                        
+                                        if (mainRow['Body Weight (kg)'] > 0) {
+                                            logRow['Log BW'] = Math.log10(mainRow['Body Weight (kg)']);
+                                        }
+                                        if (mainRow['Cl(L/h)'] > 0) {
+                                            logRow['if 0.55＜b ≤0.71'] = Math.log10(mainRow['Cl(L/h)']);
+                                        }
+                                        if (mainRow['CL*MLP'] > 0) {
+                                            logRow['if 0.71＜b ≤1'] = Math.log10(mainRow['CL*MLP']);
+                                        }
+                                        if (mainRow['CL*BrW'] > 0) {
+                                            logRow['if 1＜b ≤1.3'] = Math.log10(mainRow['CL*BrW']);
+                                            logRow['log CL*BrW'] = Math.log10(mainRow['CL*BrW']);
+                                        }
+                                        if (mainRow['CL/Fu'] > 0) {
+                                            logRow['log CL/Fu'] = Math.log10(mainRow['CL/Fu']);
+                                        }
+                                        if (mainRow['CL/Fu*MLP'] > 0) {
+                                            logRow['log CL/Fu*MLP'] = Math.log10(mainRow['CL/Fu*MLP']);
+                                        }
+                                        if (mainRow['CL/Fu*BrW'] > 0) {
+                                            logRow['log CL/Fu*BrW'] = Math.log10(mainRow['CL/Fu*BrW']);
+                                        }
+                                    }
+                                });
+
+                                // 创建两个表格的HTML
+                                let tablesHtml = '<div style="margin-bottom: 20px;">';
                                 
-                                if (mainRow['Body Weight (kg)'] > 0) {
-                                    logRow['Log BW'] = Math.log10(mainRow['Body Weight (kg)']);
-                                }
-                                if (mainRow['Cl(L/h)'] > 0) {
-                                    logRow['if 0.55＜b ≤0.71'] = Math.log10(mainRow['Cl(L/h)']);
-                                }
-                                if (mainRow['CL*MLP'] > 0) {
-                                    logRow['if 0.71＜b ≤1'] = Math.log10(mainRow['CL*MLP']);
-                                }
-                                if (mainRow['CL*BrW'] > 0) {
-                                    logRow['if 1＜b ≤1.3'] = Math.log10(mainRow['CL*BrW']);
-                                    logRow['log CL*BrW'] = Math.log10(mainRow['CL*BrW']);
-                                }
-                                if (mainRow['CL/Fu'] > 0) {
-                                    logRow['log CL/Fu'] = Math.log10(mainRow['CL/Fu']);
-                                }
-                                if (mainRow['CL/Fu*MLP'] > 0) {
-                                    logRow['log CL/Fu*MLP'] = Math.log10(mainRow['CL/Fu*MLP']);
-                                }
-                                if (mainRow['CL/Fu*BrW'] > 0) {
-                                    logRow['log CL/Fu*BrW'] = Math.log10(mainRow['CL/Fu*BrW']);
-                                }
-                            }
-                        });
+                                // 第一个表格
+                                tablesHtml += '<h3>Basic Parameters</h3>';
+                                tablesHtml += createAllometryTableHtml(mainData);
+                                
+                                // 第二个表格
+                                tablesHtml += '<h3 style="margin-top: 20px;">Logarithmic Values</h3>';
+                                tablesHtml += createTableHtml(logData);
+                                
+                                // 添加拟合图按钮
+                                tablesHtml += '<div style="margin-top: 20px; text-align: center;">';
+                                tablesHtml += '<button class="csv-button" onclick="plotFitting1()">拟合图1</button>';
+                                tablesHtml += '<button class="csv-button" onclick="plotFitting2()">拟合图2</button>';
+                                tablesHtml += '<button class="csv-button" onclick="plotFitting3()">拟合图3</button>';
+                                tablesHtml += '<button class="csv-button" onclick="plotFitting4()">拟合图4</button>';
+                                tablesHtml += '</div>';
+                                
+                                tablesHtml += '</div>';
+                                
+                                document.getElementById('tableContainer').innerHTML = tablesHtml;
 
-                        // 创建两个表格的HTML
-                        let tablesHtml = '<div style="margin-bottom: 20px;">';
-                        
-                        // 第一个表格
-                        tablesHtml += '<h3>Basic Parameters</h3>';
-                        tablesHtml += createAllometryTableHtml(mainData);
-                        
-                        // 第二个表格
-                        tablesHtml += '<h3 style="margin-top: 20px;">Logarithmic Values</h3>';
-                        tablesHtml += createTableHtml(logData);
-                        
-                        // 添加拟合图按钮
-                        tablesHtml += '<div style="margin-top: 20px; text-align: center;">';
-                        tablesHtml += '<button class="csv-button" onclick="plotFitting1()">拟合图1</button>';
-                        tablesHtml += '<button class="csv-button" onclick="plotFitting2()">拟合图2</button>';
-                        tablesHtml += '<button class="csv-button" onclick="plotFitting3()">拟合图3</button>';
-                        tablesHtml += '<button class="csv-button" onclick="plotFitting4()">拟合图4</button>';
-                        tablesHtml += '</div>';
-                        
-                        tablesHtml += '</div>';
-                        
-                        document.getElementById('tableContainer').innerHTML = tablesHtml;
+                                // 存储数据到全局变量
+                                currentAllometryData = {
+                                    mainData: mainData,
+                                    logData: logData
+                                };
 
-                        // 存储数据到全局变量
-                        currentAllometryData = {
-                            mainData: mainData,
-                            logData: logData
-                        };
+                                // 更新图表
+                                updateChart(mainData, filename);
+                            };
+                            break;
 
-                        // 更新图表
-                        updateChart(mainData, filename);
-                    };
-                    break;
+                        case 'CL and Vss in preclinical.csv':
+                            config.header = true;
+                            config.skipEmptyLines = true;
+                            config.complete = function(results) {
+                                console.log('Raw data:', results.data);
 
-                case 'CL and Vss in preclinical.csv':
-                    config.header = true;
-                    config.skipEmptyLines = true;
-                    config.complete = function(results) {
-                        console.log('Raw data:', results.data);
-
-                        // 创建两个独立的表格数据
-                        const table1 = [
-                            // 第一个表的标题行
-                            {
-                                'Compound': 'Compound',
-                                'BW(kg)': 'BW(kg)',
-                                'fu': 'fu'
-                            }
-                        ];
-
-                        const table2 = [
-                            // 第二个表的标题行
-                            {
-                                'Compound': 'Compound',
-                                'CL(L/h)': 'CL(L/h)',
-                                'CL/fu': 'CL/fu',
-                                'Vss (L)': 'Vss (L)',
-                                'Vss/fu': 'Vss/fu'
-                            }
-                        ];
-
-                        // 处理数据行
-                        results.data.forEach(row => {
-                            if (row['Compound']) {
-                                // 添加到第一个表
-                                table1.push({
-                                    'Compound': row['Compound'],
-                                    'BW(kg)': row['BW(kg)'],
-                                    'fu': row['fu']
-                                });
-
-                                // 添加到第二个表
-                                table2.push({
-                                    'Compound': row['Compound'],
-                                    'CL(L/h)': row['CL(L/h)'],
-                                    'CL/fu': row['CL/fu'],
-                                    'Vss (L)': row['Vss (L)'],
-                                    'Vss/fu': row['Vss/fu']
-                                });
-                            }
-                        });
-
-                        // 创建两个表格的HTML
-                        let tablesHtml = '<div style="margin-bottom: 20px;">';
-                        
-                        // 第一个表格
-                        tablesHtml += '<h3>Basic Parameters</h3>';
-                        tablesHtml += createTableHtml(table1);
-                        
-                        // 第二个表格
-                        tablesHtml += '<h3 style="margin-top: 20px;">CL and Vss Values</h3>';
-                        tablesHtml += createTableHtml(table2);
-                        
-                        tablesHtml += '</div>';
-                        
-                        document.getElementById('tableContainer').innerHTML = tablesHtml;
-
-                        // 存储数据到全局变量（用于编辑功能）
-                        currentCLVssData = {
-                            table1: table1,
-                            table2: table2
-                        };
-
-                        // 更新图表（使用第二个表的数据）
-                        updateChart(table2, filename);
-                    };
-                    break;
-
-                case 'FCIM.csv':
-                    config.header = false;
-                    config.skipEmptyLines = true;
-                    config.complete = function(results) {
-                        const startRow = 9;  // 0-based index
-                        const headers = ['Animal', 'Body Weight (kg)', 'CL (mL/min)', 'Log BW', 'Log CL'];
-                        
-                        const cleanData = results.data
-                            .slice(startRow)
-                            .filter(row => row && row.length >= headers.length)
-                            .map(row => {
-                                const obj = {};
-                                headers.forEach((header, i) => {
-                                    let value = row[i];
-                                    if (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!' || value === '') {
-                                        value = null;
+                                // 创建两个独立的表格数据
+                                const table1 = [
+                                    // 第一个表的标题行
+                                    {
+                                        'Compound': 'Compound',
+                                        'BW(kg)': 'BW(kg)',
+                                        'fu': 'fu'
                                     }
-                                    obj[header] = value;
-                                });
-                                return obj;
-                            })
-                            .filter(row => Object.values(row).some(v => v !== null));
-                        
-                        // 存储FCIM数据到全局变量
-                        currentFCIMData = cleanData;
-                        
-                        displayData(cleanData, filename);
-                    };
-                    break;
+                                ];
 
-                case 'IVIVE for CL.csv':
-                    config.header = true;
-                    config.skipEmptyLines = true;
-                    config.complete = function(results) {
-                        console.log('IVIVE raw data:', results.data); // 调试用
+                                const table2 = [
+                                    // 第二个表的标题行
+                                    {
+                                        'Compound': 'Compound',
+                                        'CL(L/h)': 'CL(L/h)',
+                                        'CL/fu': 'CL/fu',
+                                        'Vss (L)': 'Vss (L)',
+                                        'Vss/fu': 'Vss/fu'
+                                    }
+                                ];
 
-                        // 只保留有效的数据行
-                        const cleanData = results.data
-                            .filter(row => {
-                                // 检查是否为有效行
-                                return row && 
-                                       typeof row === 'object' && 
-                                       Object.keys(row).length > 0 &&
-                                       !Object.keys(row).every(key => !row[key]);
-                            })
-                            .map(row => {
-                                const cleanRow = {};
-                                Object.entries(row).forEach(([key, value]) => {
-                                    // 处理特殊值
-                                    if (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!' || value === '') {
-                                        cleanRow[key] = null;
-                                    } else {
-                                        cleanRow[key] = value;
+                                // 处理数据行
+                                results.data.forEach(row => {
+                                    if (row['Compound']) {
+                                        // 添加到第一个表
+                                        table1.push({
+                                            'Compound': row['Compound'],
+                                            'BW(kg)': row['BW(kg)'],
+                                            'fu': row['fu']
+                                        });
+
+                                        // 添加到第二个表
+                                        table2.push({
+                                            'Compound': row['Compound'],
+                                            'CL(L/h)': row['CL(L/h)'],
+                                            'CL/fu': row['CL/fu'],
+                                            'Vss (L)': row['Vss (L)'],
+                                            'Vss/fu': row['Vss/fu']
+                                        });
                                     }
                                 });
-                                return cleanRow;
-                            });
 
-                        console.log('IVIVE clean data:', cleanData); // 调试用
-                        displayData(cleanData, filename);
-                    };
-                    break;
+                                // 创建两个表格的HTML
+                                let tablesHtml = '<div style="margin-bottom: 20px;">';
+                                
+                                // 第一个表格
+                                tablesHtml += '<h3>Basic Parameters</h3>';
+                                tablesHtml += createTableHtml(table1);
+                                
+                                // 第二个表格
+                                tablesHtml += '<h3 style="margin-top: 20px;">CL and Vss Values</h3>';
+                                tablesHtml += createTableHtml(table2);
+                                
+                                tablesHtml += '</div>';
+                                
+                                document.getElementById('tableContainer').innerHTML = tablesHtml;
 
-                case 'Wajim-CL.csv':
-                    config.header = false;
-                    config.skipEmptyLines = true;
-                    config.complete = function(results) {
-                        console.log('Wajim raw data:', results.data);
+                                // 存储数据到全局变量（用于编辑功能）
+                                currentCLVssData = {
+                                    table1: table1,
+                                    table2: table2
+                                };
 
-                        // 创建两个独立的数据集
-                        const mainData = [
-                            // 设置固定值
-                            { Parameter: 'CLrat', Value: 6.20 },
-                            { Parameter: 'CLdog', Value: 2.15 },
-                            { Parameter: 'MW', Value: 614 },
-                            { Parameter: 'Ha', Value: 12 }
-                        ];
-                        
-                        // 创建 CL human 数据表
-                        const clHumanData = [
-                            // 第一行：标题行
-                            {
-                                Col1: 'logCLhuman',
-                                Col2: 'mL/min/kg',
-                                Col3: 'mL/min',
-                                Col4: 'L/hr'
-                            },
-                            // 第二行：可输入的值
-                            {
-                                Col1: null,
-                                Col2: null,
-                                Col3: null,
-                                Col4: null
-                            }
-                        ];
+                                // 更新图表（使用第二个表的数据）
+                                updateChart(table2, filename);
+                            };
+                            break;
 
-                        // 创建两个表格的HTML
-                        let tablesHtml = '<div style="margin-bottom: 20px;">';
-                        
-                        // 第一个表格
-                        tablesHtml += '<h3>Main Parameters</h3>';
-                        tablesHtml += createTableHtml(mainData);
-                        
-                        // 第二个表格
-                        tablesHtml += '<h3 style="margin-top: 20px;">CL Human Values</h3>';
-                        tablesHtml += createEditableTableHtml(clHumanData);
-                        
-                        tablesHtml += '</div>';
-                        
-                        document.getElementById('tableContainer').innerHTML = tablesHtml;
+                        case 'FCIM.csv':
+                            config.header = false;
+                            config.skipEmptyLines = false;
+                            config.complete = function(results) {
+                                console.log('FCIM raw data:', results.data);  // 添加调试日志
+                                
+                                // 第一个表的数据处理
+                                const headers = ['Item', 'Animal', 'Body Weight (kg)', 'CL (mL/min)', 'Log BW', 'Log CL'];
+                                
+                                // 设置固定的Body Weight值
+                                const fixedBodyWeights = {
+                                    0: 0.025,  // Mouse (15行)
+                                    1: 0.3,    // Rat (16行)
+                                    2: 10,     // Dog (17行)
+                                    3: 5,      // Monkey (18行)
+                                    4: 60,     // Human (19行)
+                                    6: 0.02,   // C21
+                                    7: 0.01    // C22
+                                };
 
-                        // 更新图表（使用主数据）
-                        updateChart(mainData, filename);
-                    };
-                    break;
+                                // 设置固定的CL值
+                                const fixedCLValues = {
+                                    0: 0.0548,  // Mouse (15行)
+                                    1: 1.24,    // Rat (16行)
+                                    2: 10.363,  // Dog (17行)
+                                    3: 19.431,  // Monkey (18行)
+                                    4: 0.02,    // C20
+                                    5: 0.02,    // C21 (默认值)
+                                    6: 0.01,    // C22 (默认值)
+                                    7: 2,       // C23 = C21/C22 = 0.02/0.01 = 2
+                                    8: 0.02,    // C24
+                                    10: 2       // C26 = C24/C25 = 0.02/0.01 = 2
+                                };
+                                
+                                const cleanData = [];
+                                
+                                // 添加基础数据（Mouse到Human）
+                                const animals = ['Mouse', 'Rat', 'Dog', 'Monkey', 'Human'];
+                                animals.forEach((animal, index) => {
+                                    const obj = {
+                                        'Item': '',
+                                        'Animal': animal,
+                                        'Body Weight (kg)': fixedBodyWeights[index],
+                                        'CL (mL/min)': fixedCLValues[index],
+                                        'Log BW': Math.log10(fixedBodyWeights[index]),
+                                        'Log CL': fixedCLValues[index] ? Math.log10(fixedCLValues[index]) : null
+                                    };
+                                    cleanData.push(obj);
+                                });
 
-                default:
-                    config.header = true;
-                    config.skipEmptyLines = true;
-                    config.complete = function(results) {
-                        console.log('Raw data:', results.data);
+                                // 添加额外的计算行（C21-C23）
+                                for (let i = 5; i <= 7; i++) {
+                                    const obj = {
+                                        'Item': '',
+                                        'Animal': '',
+                                        'Body Weight (kg)': null,
+                                        'CL (mL/min)': fixedCLValues[i],
+                                        'Log BW': null,
+                                        'Log CL': null
+                                    };
+                                    cleanData.push(obj);
+                                }
 
-                        // 清理数据并只保留有数据的列
-                        const cleanData = results.data
-                            .filter(row => Object.values(row).some(v => v !== null && v !== ''))
-                            .map(row => {
-                                // 只保留有数据的列
-                                const cleanRow = {};
-                                if (row['Compound']) cleanRow['Compound'] = row['Compound'];
-                                if (row['BW(kg)']) cleanRow['BW(kg)'] = row['BW(kg)'];
-                                if (row['fu']) cleanRow['fu'] = row['fu'];
-                                if (row['CL(L/h)']) cleanRow['CL(L/h)'] = row['CL(L/h)'];
-                                if (row['CL/fu']) cleanRow['CL/fu'] = row['CL/fu'];
-                                if (row['Vss (L)']) cleanRow['Vss (L)'] = row['Vss (L)'];
-                                if (row['Vss/fu']) cleanRow['Vss/fu'] = row['Vss/fu'];
-                                return cleanRow;
-                            })
-                            .filter(row => Object.keys(row).length > 0); // 确保行中有数据
+                                // 第二个表的数据（4行2列）
+                                const table2Data = [
+                                    { 'Column 1': 'a', 'Column 2': '2.42' },
+                                    { 'Column 1': 'fu_rat', 'Column 2': '0.02' },
+                                    { 'Column 1': 'fu_human', 'Column 2': '0.01' },
+                                    { 'Column 1': 'Rfu', 'Column 2': '2.00' }
+                                ];
+                                
+                                // 创建两个表格的HTML
+                                let tablesHtml = '<div style="margin-bottom: 20px;">';
+                                
+                                // 第一个表格
+                                tablesHtml += '<h3>FCIM Data</h3>';
+                                tablesHtml += createTableHtml(cleanData);
+                                
+                                // 第二个表格
+                                tablesHtml += '<h3 style="margin-top: 20px;">Additional Data</h3>';
+                                tablesHtml += createEditableTable2Html(table2Data);
+                                
+                                // 计算并显示实际值
+                                const b1 = parseFloat(table2Data[0]['Column 2']); // a的值
+                                const b4 = parseFloat(table2Data[3]['Column 2']); // Rfu的值
+                                const clMin = 33.35 * Math.pow(b1/b4, 0.77);
+                                const clHr = clMin * 0.06;
+                                
+                                tablesHtml += '<div style="margin-top: 10px; font-size: 14px; color: #666;">';
+                                tablesHtml += `CL human (L/min) = ${clMin.toFixed(2)}<br>`;
+                                tablesHtml += `CL human (L/hr) = ${clHr.toFixed(2)}`;
+                                tablesHtml += '</div>';
+                                
+                                // 添加拟合按钮
+                                tablesHtml += '<div style="margin-top: 20px; text-align: center;">';
+                                tablesHtml += '<button class="csv-button" onclick="plotFCIMFitting()">拟合图</button>';
+                                tablesHtml += '</div>';
+                                
+                                tablesHtml += '</div>';
+                                
+                                document.getElementById('tableContainer').innerHTML = tablesHtml;
+                                
+                                // 存储FCIM数据到全局变量
+                                currentFCIMData = {
+                                    mainTable: cleanData,
+                                    secondTable: table2Data
+                                };
+                                
+                                // 更新图表
+                                updateChart(cleanData, filename);
+                            };
+                            break;
 
-                        // 存储数据到全局变量
-                        if (filename === 'CL and Vss in preclinical.csv') {
-                            currentCLVssData = cleanData;
-                        }
-                        
-                        displayData(cleanData, filename);
-                    };
-                    break;
-            }
+                        case 'IVIVE for CL.csv':
+                            config.header = true;
+                            config.skipEmptyLines = true;
+                            config.complete = function(results) {
+                                console.log('IVIVE raw data:', results.data); // 调试用
 
-            // 添加调试信息
-            console.log('正在加载文件:', filename);
-            console.log('使用的配置:', config);
+                                // 只保留有效的数据行
+                                const cleanData = results.data
+                                    .filter(row => {
+                                        // 检查是否为有效行
+                                        return row && 
+                                               typeof row === 'object' && 
+                                               Object.keys(row).length > 0 &&
+                                               !Object.keys(row).every(key => !row[key]);
+                                    })
+                                    .map(row => {
+                                        const cleanRow = {};
+                                        Object.entries(row).forEach(([key, value]) => {
+                                            // 处理特殊值
+                                            if (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!' || value === '') {
+                                                cleanRow[key] = null;
+                                            } else {
+                                                cleanRow[key] = value;
+                                            }
+                                        });
+                                        return cleanRow;
+                                    });
 
-            Papa.parse(serverUrl + encodedFilename, config);
+                                console.log('IVIVE clean data:', cleanData); // 调试用
+                                displayData(cleanData, filename);
+                            };
+                            break;
+
+                        case 'Wajim-CL.csv':
+                            config.header = false;
+                            config.skipEmptyLines = true;
+                            config.complete = function(results) {
+                                console.log('Wajim raw data:', results.data);
+
+                                // 创建两个独立的数据集
+                                const mainData = [
+                                    // 设置固定值
+                                    { Parameter: 'CLrat', Value: 6.20 },
+                                    { Parameter: 'CLdog', Value: 2.15 },
+                                    { Parameter: 'MW', Value: 614 },
+                                    { Parameter: 'Ha', Value: 12 },
+                                    { Parameter: 'fu_rat', Value: 0.02 },
+                                    { Parameter: 'fu_human', Value: 0.01 }
+                                ];
+                                
+                                // 创建 CL human 数据表
+                                const clHumanData = [
+                                    // 第一行：标题行
+                                    {
+                                        Col1: '',
+                                        Col2: 'CL human',
+                                        Col3: 'mL/min',
+                                        Col4: 'L/hr'
+                                    },
+                                    // 第二行：可输入的值
+                                    {
+                                        Col1: '',
+                                        Col2: null,
+                                        Col3: null,
+                                        Col4: null
+                                    }
+                                ];
+
+                                // 创建两个表格的HTML
+                                let tablesHtml = '<div style="margin-bottom: 20px;">';
+                                
+                                // 第一个表格
+                                tablesHtml += '<h3>Main Parameters</h3>';
+                                tablesHtml += createTableHtml(mainData);
+                                
+                                // 第二个表格
+                                tablesHtml += '<h3 style="margin-top: 20px;">CL Human Values</h3>';
+                                tablesHtml += createEditableTableHtml(clHumanData);
+                                
+                                tablesHtml += '</div>';
+                                
+                                document.getElementById('tableContainer').innerHTML = tablesHtml;
+
+                                // 更新图表（使用主数据）
+                                updateChart(mainData, filename);
+                            };
+                            break;
+
+                        default:
+                            config.header = true;
+                            config.skipEmptyLines = true;
+                            config.complete = function(results) {
+                                console.log('Raw data:', results.data);
+
+                                // 清理数据并只保留有数据的列
+                                const cleanData = results.data
+                                    .filter(row => Object.values(row).some(v => v !== null && v !== ''))
+                                    .map(row => {
+                                        // 只保留有数据的列
+                                        const cleanRow = {};
+                                        if (row['Compound']) cleanRow['Compound'] = row['Compound'];
+                                        if (row['BW(kg)']) cleanRow['BW(kg)'] = row['BW(kg)'];
+                                        if (row['fu']) cleanRow['fu'] = row['fu'];
+                                        if (row['CL(L/h)']) cleanRow['CL(L/h)'] = row['CL(L/h)'];
+                                        if (row['CL/fu']) cleanRow['CL/fu'] = row['CL/fu'];
+                                        if (row['Vss (L)']) cleanRow['Vss (L)'] = row['Vss (L)'];
+                                        if (row['Vss/fu']) cleanRow['Vss/fu'] = row['Vss/fu'];
+                                        return cleanRow;
+                                    })
+                                    .filter(row => Object.keys(row).length > 0); // 确保行中有数据
+
+                                // 存储数据到全局变量
+                                if (filename === 'CL and Vss in preclinical.csv') {
+                                    currentCLVssData = cleanData;
+                                }
+                                
+                                displayData(cleanData, filename);
+                            };
+                            break;
+                    }
+
+                    // 添加调试信息
+                    console.log('正在加载文件:', filename);
+                    console.log('使用的配置:', config);
+
+                    Papa.parse(csvData, config);
+                });
         }
 
         function getColumnLabel(index) {
-            // 将索引偏移6位，使A对应G
-            index = index + 6;
+            // 将列索引转换为字母标识（A=0, B=1, etc.）
             let label = '';
             while (index >= 0) {
                 label = String.fromCharCode(65 + (index % 26)) + label;
@@ -565,7 +648,7 @@
             }
             
             // 创建表格
-            let table = '<table><thead><tr><th></th>';  // 添加一个空的角落单元格
+            let table = '<table><thead><tr><th></th>';
             const headers = Object.keys(data[0]);
             headers.forEach((header, colIndex) => {
                 const colLabel = getColumnLabel(colIndex);
@@ -576,27 +659,69 @@
             // 根据文件类型使用不同的表格单元格渲染方式
             if (filename === 'FCIM.csv' || filename === 'CL and Vss in preclinical.csv') {
                 data.forEach((row, rowIndex) => {
-                    table += `<tr><td class="row-header">${rowIndex + 1}</td>`;  // 添加行号
+                    let actualRowNumber;
+                    if (filename === 'FCIM.csv') {
+                        actualRowNumber = rowIndex + 15;  // Simply start from 15 and increment
+                    } else {
+                        actualRowNumber = rowIndex + 1;
+                    }
+                    table += `<tr><td class="row-header">${actualRowNumber}</td>`;
                     headers.forEach((header, colIndex) => {
                         const value = row[header];
-                        const cellPosition = `${getColumnLabel(colIndex)}${rowIndex + 1}`;
+                        const actualColIndex = colIndex;  // 移除 colIndex + 1
+                        const cellPosition = `${getColumnLabel(actualColIndex)}${actualRowNumber}`;
                         
-                        if ((filename === 'FCIM.csv' && header === 'CL (mL/min)') ||
-                            (filename === 'CL and Vss in preclinical.csv' && 
-                             (header === 'CL/F(mL/min/kg)' || header === 'Vd/F (L/kg)' || 
-                              header === 'CL(mL/min)' || header === 'CL(L/h)' || 
-                              header === 'Vss (L)' || header === 'fu' || 
-                              header === 'CL/fu' || header === 'Vss/fu'))) {
+                        if ((filename === 'FCIM.csv' && header === 'CL (mL/min)')) {
+                            // Special handling for C21 and C22 cells in FCIM.csv
+                            let defaultValue = '';
+                            if (actualRowNumber === 21) {  // C21
+                                defaultValue = '0.02';
+                            } else if (actualRowNumber === 22) {  // C22
+                                defaultValue = '0.01';
+                            } else if (actualRowNumber === 23) {  // C23 (计算值)
+                                const c21 = fixedCLValues[5];
+                                const c22 = fixedCLValues[6];
+                                defaultValue = c21 / c22;
+                            } else {
+                                defaultValue = value || '';
+                            }
                             
+                            if (actualRowNumber === 21 || actualRowNumber === 22) {
+                                // C21 和 C22 是可输入的
+                                table += `<td>
+                                    <div class="cell-position">${cellPosition}</div>
+                                    <input type="number" 
+                                        value="${defaultValue}" 
+                                        step="0.0001"
+                                        data-position="${cellPosition}"
+                                        onchange="updateCLValue(${rowIndex}, this.value)"
+                                    />
+                                </td>`;
+                            } else if (actualRowNumber === 23) {
+                                // C23 是计算结果
+                                table += `<td>
+                                    <div class="cell-position">${cellPosition}</div>
+                                    ${defaultValue}
+                                </td>`;
+                            } else {
+                                table += `<td>
+                                    <div class="cell-position">${cellPosition}</div>
+                                    ${defaultValue}
+                                </td>`;
+                            }
+                        } else if (filename === 'CL and Vss in preclinical.csv' && 
+                                 (header === 'CL/F(mL/min/kg)' || header === 'Vd/F (L/kg)' || 
+                                  header === 'CL(mL/min)' || header === 'CL(L/h)' || 
+                                  header === 'Vss (L)' || header === 'fu' || 
+                                  header === 'CL/fu' || header === 'Vss/fu')) {
+                            // Handle other editable cells
                             table += `<td>
                                 <div class="cell-position">${cellPosition}</div>
                                 <input type="number" 
                                     value="${value || ''}" 
                                     step="0.0001"
                                     data-position="${cellPosition}"
-                                    onchange="${filename === 'FCIM.csv' ? 
-                                        `updateCLValue(${rowIndex}, this.value)` : 
-                                        `updateCLVssValue(${rowIndex}, '${header}', this.value)`}"
+                                    onchange="updateCLVssValue(${rowIndex}, '${header}', this.value)"
                                 />
                             </td>`;
                         } else {
@@ -641,7 +766,18 @@
             }
 
             table += '</tbody></table>';
-            document.getElementById('tableContainer').innerHTML = table;
+            
+            // Add fitting button for FCIM table
+            if (filename === 'FCIM.csv') {
+                const buttonHtml = `
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="csv-button" onclick="plotFCIMFitting()">拟合图</button>
+                    </div>
+                `;
+                document.getElementById('tableContainer').innerHTML = table + buttonHtml;
+            } else {
+                document.getElementById('tableContainer').innerHTML = table;
+            }
 
             // 更新图表
             updateChart(data, filename);
@@ -1015,12 +1151,28 @@
             // 计算新的Log CL值
             if (!isNaN(newValue) && newValue > 0) {
                 currentFCIMData[rowIndex]['Log CL'] = Math.log10(parseFloat(newValue));
+                
+                // Update fixedCLValues for C21 and C22
+                const actualRowNumber = rowIndex + 15;  // Convert to actual row number
+                if (actualRowNumber === 21) {  // C21
+                    fixedCLValues[5] = parseFloat(newValue);  // Update C21 value
+                    // Recalculate C23 = C21/C22
+                    if (fixedCLValues[6] !== undefined) {  // If C22 exists
+                        fixedCLValues[7] = fixedCLValues[5] / fixedCLValues[6];
+                    }
+                } else if (actualRowNumber === 22) {  // C22
+                    fixedCLValues[6] = parseFloat(newValue);  // Update C22 value
+                    // Recalculate C23 = C21/C22
+                    if (fixedCLValues[5] !== undefined) {  // If C21 exists
+                        fixedCLValues[7] = fixedCLValues[5] / fixedCLValues[6];
+                    }
+                }
             } else {
                 currentFCIMData[rowIndex]['Log CL'] = null;
             }
 
-            // 更新图表
-            updateChart(currentFCIMData, 'FCIM.csv');
+            // 更新显示
+            displayData(currentFCIMData, 'FCIM.csv');
         }
 
         // 添加更新 CL and Vss 值的函数
@@ -1473,6 +1625,123 @@
             }
         }
 
+        // Add new FCIM fitting function
+        function plotFCIMFitting() {
+            if (!currentFCIMData) return;
+
+            const xValues = [];
+            const yValues = [];
+
+            // Get data points from E15:E18 and F15:F18 (first 4 rows)
+            for (let i = 0; i < 4; i++) {
+                const xValue = currentFCIMData.mainTable[i]['Log BW'];
+                const yValue = currentFCIMData.mainTable[i]['Log CL'];
+                if (xValue !== null && yValue !== null && !isNaN(xValue) && !isNaN(yValue)) {
+                    xValues.push(xValue);
+                    yValues.push(yValue);
+                }
+            }
+
+            // Calculate linear regression
+            const n = xValues.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+            for (let i = 0; i < n; i++) {
+                sumX += xValues[i];
+                sumY += yValues[i];
+                sumXY += xValues[i] * yValues[i];
+                sumX2 += xValues[i] * xValues[i];
+                sumY2 += yValues[i] * yValues[i];
+            }
+            
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+
+            // Calculate R-squared
+            const meanY = sumY / n;
+            let totalSS = 0;
+            let residualSS = 0;
+            for (let i = 0; i < n; i++) {
+                const predictedY = slope * xValues[i] + intercept;
+                totalSS += Math.pow(yValues[i] - meanY, 2);
+                residualSS += Math.pow(yValues[i] - predictedY, 2);
+            }
+            const rSquared = 1 - (residualSS / totalSS);
+            const r = Math.sqrt(rSquared);
+
+            // Create fitting line data points
+            const minX = Math.min(...xValues);
+            const maxX = Math.max(...xValues);
+            const fitX = [minX, maxX];
+            const fitY = fitX.map(x => slope * x + intercept);
+
+            // Destroy existing chart
+            if (currentChart) {
+                currentChart.destroy();
+            }
+
+            // Create new chart
+            const ctx = document.getElementById('myChart').getContext('2d');
+            currentChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: '数据点',
+                            data: xValues.map((x, i) => ({x: x, y: yValues[i]})),
+                            backgroundColor: 'rgb(0, 0, 255)',
+                            pointStyle: 'circle',
+                            pointRadius: 6,
+                            showLine: false
+                        },
+                        {
+                            label: '拟合曲线',
+                            data: fitX.map((x, i) => ({x: x, y: fitY[i]})),
+                            backgroundColor: 'rgb(255, 0, 0)',
+                            borderColor: 'rgb(255, 0, 0)',
+                            pointStyle: 'line',
+                            pointRadius: 0,
+                            showLine: true,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'FCIM 拟合曲线',
+                            font: { size: 16 },
+                            padding: { top: 10, bottom: 30 }
+                        },
+                        subtitle: {
+                            display: true,
+                            text: `y = ${slope.toFixed(3)}x + ${intercept.toFixed(3)}    R = ${r.toFixed(3)}    R² = ${rSquared.toFixed(3)}`,
+                            font: { size: 14 },
+                            padding: { bottom: 10 }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Log BW'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Log CL'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Scroll to chart
+            document.getElementById('chartContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
         // 添加通用的绘制拟合图函数
         function plotFittingGeneral(xColumn, yColumn, chartTitle) {
             if (!currentAllometryData || !currentAllometryData.logData) {
@@ -1497,19 +1766,32 @@
 
             // 计算线性回归
             const n = xValues.length;
-            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
             for (let i = 0; i < n; i++) {
                 sumX += xValues[i];
                 sumY += yValues[i];
                 sumXY += xValues[i] * yValues[i];
                 sumX2 += xValues[i] * xValues[i];
+                sumY2 += yValues[i] * yValues[i];
             }
             
             // 计算斜率和截距
             const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
             const intercept = (sumY - slope * sumX) / n;
 
-            // 创建拟合线的数据点
+            // 计算 R-squared
+            const meanY = sumY / n;
+            let totalSS = 0;
+            let residualSS = 0;
+            for (let i = 0; i < n; i++) {
+                const predictedY = slope * xValues[i] + intercept;
+                totalSS += Math.pow(yValues[i] - meanY, 2);
+                residualSS += Math.pow(yValues[i] - predictedY, 2);
+            }
+            const rSquared = 1 - (residualSS / totalSS);
+            const r = Math.sqrt(rSquared);
+
+            // Create fitting line data points
             const minX = Math.min(...xValues);
             const maxX = Math.max(...xValues);
             const fitX = [minX, maxX];
@@ -1557,7 +1839,7 @@
                         },
                         subtitle: {
                             display: true,
-                            text: `y = ${slope.toFixed(3)}x + ${intercept.toFixed(3)}`,
+                            text: `y = ${slope.toFixed(3)}x + ${intercept.toFixed(3)}    R = ${r.toFixed(3)}    R² = ${rSquared.toFixed(3)}`,
                             font: { size: 14 },
                             padding: { bottom: 10 }
                         }
@@ -1599,6 +1881,79 @@
 
         function plotFitting4() {
             plotFittingGeneral('Log BW', 'log CL*BrW', '一次拟合曲线4');
+        }
+
+        // 添加新的函数来创建可编辑的第二个表格
+        function createEditableTable2Html(data) {
+            if (!data || data.length === 0) return '<p>No data available</p>';
+
+            let table = '<table><thead><tr><th></th>';
+            const headers = Object.keys(data[0]);
+            headers.forEach((header, colIndex) => {
+                const colLabel = getColumnLabel(colIndex);
+                table += `<th>${header}<div class="cell-position">${colLabel}</div></th>`;
+            });
+            table += '</tr></thead><tbody>';
+
+            data.forEach((row, rowIndex) => {
+                const actualRowNumber = rowIndex + 1;
+                table += `<tr><td class="row-header">${actualRowNumber}</td>`;
+                headers.forEach((header, colIndex) => {
+                    const value = row[header];
+                    const cellPosition = `${getColumnLabel(colIndex)}${actualRowNumber}`;
+                    
+                    if (header === 'Column 2') {
+                        // Column 2 是可编辑的
+                        table += `<td>
+                            <div class="cell-position">${cellPosition}</div>
+                            <input type="number" 
+                                value="${value}" 
+                                step="0.01"
+                                style="width: 100px;"
+                                onchange="updateTable2Value(${rowIndex}, this.value)"
+                            />
+                        </td>`;
+                    } else {
+                        // Column 1 显示固定值
+                        table += `<td>
+                            <div class="cell-position">${cellPosition}</div>
+                            ${value}
+                        </td>`;
+                    }
+                });
+                table += '</tr>';
+            });
+            table += '</tbody></table>';
+            return table;
+        }
+
+        // 添加更新第二个表格值的函数
+        function updateTable2Value(rowIndex, newValue) {
+            if (!currentFCIMData || !currentFCIMData.secondTable) return;
+            
+            currentFCIMData.secondTable[rowIndex]['Column 2'] = newValue;
+            
+            // Calculate B4 (Rfu) as B2/B3 whenever B2 or B3 changes
+            if (rowIndex === 1 || rowIndex === 2) {  // If B2 (fu_rat) or B3 (fu_human) changes
+                const fu_rat = parseFloat(currentFCIMData.secondTable[1]['Column 2']);
+                const fu_human = parseFloat(currentFCIMData.secondTable[2]['Column 2']);
+                if (!isNaN(fu_rat) && !isNaN(fu_human) && fu_human !== 0) {
+                    currentFCIMData.secondTable[3]['Column 2'] = (fu_rat / fu_human).toFixed(2);
+                }
+            }
+            
+            // 更新显示
+            document.getElementById('tableContainer').innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h3>FCIM Data</h3>
+                    ${createTableHtml(currentFCIMData.mainTable)}
+                    <h3 style="margin-top: 20px;">Additional Data</h3>
+                    ${createEditableTable2Html(currentFCIMData.secondTable)}
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button class="csv-button" onclick="plotFCIMFitting()">拟合图</button>
+                    </div>
+                </div>
+            `;
         }
     </script>
 </body>
