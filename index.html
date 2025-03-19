@@ -95,6 +95,14 @@
         .error-value {
             color: red;
         }
+        .readonly {
+            background-color: #f0f0f0;
+            cursor: not-allowed;
+        }
+        .editable {
+            background-color: white;
+            cursor: text;
+        }
     </style>
 </head>
 <body>
@@ -337,76 +345,81 @@
                     break;
 
                 case 'CL and Vss in preclinical.csv':
-                    config.header = true;
-                    config.skipEmptyLines = true;
+                    config.header = false;
+                    config.skipEmptyLines = false;
                     config.complete = function(results) {
-                        console.log('Raw data:', results.data);
-
-                        // 创建两个独立的表格数据
-                        const table1 = [
-                            // 第一个表的标题行
-                            {
-                                'Compound': 'Compound',
-                                'BW(kg)': 'BW(kg)',
-                                'fu': 'fu'
-                            }
-                        ];
-
-                        const table2 = [
-                            // 第二个表的标题行
-                            {
-                                'Compound': 'Compound',
-                                'CL(L/h)': 'CL(L/h)',
-                                'CL/fu': 'CL/fu',
-                                'Vss (L)': 'Vss (L)',
-                                'Vss/fu': 'Vss/fu'
-                            }
-                        ];
-
-                        // 处理数据行
-                        results.data.forEach(row => {
-                            if (row['Compound']) {
-                                // 添加到第一个表
-                                table1.push({
-                                    'Compound': row['Compound'],
-                                    'BW(kg)': row['BW(kg)'],
-                                    'fu': row['fu']
-                                });
-
-                                // 添加到第二个表
-                                table2.push({
-                                    'Compound': row['Compound'],
-                                    'CL(L/h)': row['CL(L/h)'],
-                                    'CL/fu': row['CL/fu'],
-                                    'Vss (L)': row['Vss (L)'],
-                                    'Vss/fu': row['Vss/fu']
-                                });
-                            }
+                        console.log('CL and Vss raw data:', results.data);
+                        
+                        // 创建表格HTML
+                        let table = '<div style="margin-bottom: 20px;">';
+                        table += '<table class="data-table">';
+                        
+                        // 添加标题行
+                        table += '<thead><tr>';
+                        const headers = ['Animal', 'Dose (mg/kg)', 'BW(kg)', 'CL/F(mL/min/kg)', 'CL(mL/min)', 
+                                        'CL(L/h)', 'Vd/F (L/kg)', 'Vss (L)', 'fu', 'CL/fu', 'Vss/fu'];
+                        headers.forEach((header, j) => {
+                            const cellPosition = `${getColumnLabel(j)}1`;
+                            table += `<td class="cell-container header-cell">
+                                <div class="cell-position">${cellPosition}</div>
+                                <div class="cell-content">${header}</div>
+                            </td>`;
                         });
-
-                        // 创建两个表格的HTML
-                        let tablesHtml = '<div style="margin-bottom: 20px;">';
+                        table += '</tr></thead><tbody>';
                         
-                        // 第一个表格
-                        tablesHtml += '<h3>Basic Parameters</h3>';
-                        tablesHtml += createTableHtml(table1);
+                        // 处理数据行，跳过第二行（索引为1的行）
+                        for (let i = 0; i < results.data.length; i++) {
+                            if (i === 1) continue; // 跳过第二行
+                            
+                            const row = results.data[i];
+                            if (row.every(cell => !cell)) continue; // 跳过其他空行
+                            
+                            table += '<tr>';
+                            for (let j = 0; j < row.length; j++) {
+                                let cellContent = row[j] || '';
+                                const cellPosition = `${getColumnLabel(j)}${i+1}`;
+                                
+                                // 检查是否是可编辑列
+                                // BW(kg), CL/F, CL(mL/min), CL(L/h), Vd/F, Vss, fu 是可编辑的
+                                const editableColumns = [2, 3, 4, 5, 6, 7, 8];
+                                
+                                if (editableColumns.includes(j) && i > 0) {
+                                    table += `<td class="cell-container">
+                                        <div class="cell-position">${cellPosition}</div>
+                                        <input type="number" 
+                                            class="cell-input"
+                                            value="${cellContent}" 
+                                            step="0.000001"
+                                            data-row="${i}"
+                                            data-col="${j}"
+                                            onchange="updateCLVssValue(this.value, this.dataset.row, this.dataset.col)"
+                                        />
+                                    </td>`;
+                                } else {
+                                    // 格式化数字
+                                    if (!isNaN(parseFloat(cellContent)) && isFinite(cellContent)) {
+                                        const num = parseFloat(cellContent);
+                                        if (num % 1 !== 0) {
+                                            cellContent = num.toFixed(6);
+                                        }
+                                    }
+                                    
+                                    table += `<td class="cell-container">
+                                        <div class="cell-position">${cellPosition}</div>
+                                        <div class="cell-content">${cellContent}</div>
+                                    </td>`;
+                                }
+                            }
+                            table += '</tr>';
+                        }
                         
-                        // 第二个表格
-                        tablesHtml += '<h3 style="margin-top: 20px;">CL and Vss Values</h3>';
-                        tablesHtml += createTableHtml(table2);
+                        table += '</tbody></table></div>';
                         
-                        tablesHtml += '</div>';
+                        // 显示表格
+                        document.getElementById('tableContainer').innerHTML = table;
                         
-                        document.getElementById('tableContainer').innerHTML = tablesHtml;
-
-                        // 存储数据到全局变量（用于编辑功能）
-                        currentCLVssData = {
-                            table1: table1,
-                            table2: table2
-                        };
-
-                        // 更新图表（使用第二个表的数据）
-                        updateChart(table2, filename);
+                        // 存储数据到全局变量
+                        currentCLVssData = results.data;
                     };
                     break;
 
@@ -480,15 +493,15 @@
                                     { 'Column 1': 'fu_human', 'Column 2': '0.01' },
                                     { 'Column 1': 'Rfu', 'Column 2': '2.00' }
                                 ];
-                                
-                                // 创建两个表格的HTML
-                                let tablesHtml = '<div style="margin-bottom: 20px;">';
-                                
-                                // 第一个表格
+
+                        // 创建两个表格的HTML
+                        let tablesHtml = '<div style="margin-bottom: 20px;">';
+                        
+                        // 第一个表格
                                 tablesHtml += '<h3>FCIM Data</h3>';
                                 tablesHtml += createTableHtml(cleanData);
-                                
-                                // 第二个表格
+                        
+                        // 第二个表格
                                 tablesHtml += '<h3 style="margin-top: 20px;">Additional Data</h3>';
                                 tablesHtml += createEditableTable2Html(table2Data);
                                 
@@ -501,8 +514,8 @@
                                 tablesHtml += '<div style="margin-top: 10px; font-size: 14px; color: #666;">';
                                 tablesHtml += `CL human (L/min) = ${clMin.toFixed(2)}<br>`;
                                 tablesHtml += `CL human (L/hr) = ${clHr.toFixed(2)}`;
-                                tablesHtml += '</div>';
-                                
+                        tablesHtml += '</div>';
+                        
                                 // 添加拟合按钮
                                 tablesHtml += '<div style="margin-top: 20px; text-align: center;">';
                                 tablesHtml += '<button class="csv-button" onclick="plotFCIMFitting()">拟合图</button>';
@@ -689,17 +702,17 @@
                     if (editableColumns.includes(j) && i > 0 && i !== 8 && i !== 9) {
                         // 创建可编辑的输入框
                         table += `<td class="cell-container">
-                            <div class="cell-position">${cellPosition}</div>
-                            <input type="number" 
+                                <div class="cell-position">${cellPosition}</div>
+                                <input type="number" 
                                 class="cell-input"
                                 value="${cellContent}" 
                                 step="0.000001"
                                 data-row="${i}"
                                 data-col="${j}"
                                 onchange="updateIVIVEValue(this.value, this.dataset.row, this.dataset.col)"
-                            />
-                        </td>`;
-                    } else {
+                                />
+                            </td>`;
+                        } else {
                         // 其他列保持原样显示
                         // ... 原有的非编辑单元格处理代码 ...
                         table += '<td class="cell-container">';
@@ -725,153 +738,39 @@
                     table += '</td>';
                 }
                 
-                table += '</tr>';
+                    table += '</tr>';
             }
-            
+
             table += '</tbody></table>';
             document.getElementById('tableContainer').innerHTML = table;
         }
 
-        function displayData(data, filename) {
-            if (!data || data.length === 0) {
+        function displayData(results) {
+            if (!results || results.data.length === 0) {
                 console.error('没有数据可显示');
                 return;
             }
             
-            // 创建表格
-            let table = '<table><thead><tr><th></th>';
-            const headers = Object.keys(data[0]);
-            headers.forEach((header, colIndex) => {
-                const colLabel = getColumnLabel(colIndex);
-                table += `<th>${header}<div class="cell-position">${colLabel}</div></th>`;
-            });
-            table += '</tr></thead><tbody>';
-
-            // 根据文件类型使用不同的表格单元格渲染方式
-            if (filename === 'FCIM.csv' || filename === 'CL and Vss in preclinical.csv') {
-                data.forEach((row, rowIndex) => {
-                    let actualRowNumber;
-                    if (filename === 'FCIM.csv') {
-                        actualRowNumber = rowIndex + 15;  // Simply start from 15 and increment
-                    } else {
-                        actualRowNumber = rowIndex + 1;
-                    }
-                    table += `<tr><td class="row-header">${actualRowNumber}</td>`;
-                    headers.forEach((header, colIndex) => {
-                        const value = row[header];
-                        const actualColIndex = colIndex;  // 移除 colIndex + 1
-                        const cellPosition = `${getColumnLabel(actualColIndex)}${actualRowNumber}`;
-                        
-                        if ((filename === 'FCIM.csv' && header === 'CL (mL/min)')) {
-                            // Special handling for C21 and C22 cells in FCIM.csv
-                            let defaultValue = '';
-                            if (actualRowNumber === 21) {  // C21
-                                defaultValue = '0.02';
-                            } else if (actualRowNumber === 22) {  // C22
-                                defaultValue = '0.01';
-                            } else if (actualRowNumber === 23) {  // C23 (计算值)
-                                const c21 = fixedCLValues[5];
-                                const c22 = fixedCLValues[6];
-                                defaultValue = c21 / c22;
-                            } else {
-                                defaultValue = value || '';
-                            }
-                            
-                            if (actualRowNumber === 21 || actualRowNumber === 22) {
-                                // C21 和 C22 是可输入的
-                                table += `<td>
-                                    <div class="cell-position">${cellPosition}</div>
-                                    <input type="number" 
-                                        value="${defaultValue}" 
-                                        step="0.0001"
-                                        data-position="${cellPosition}"
-                                        onchange="updateCLValue(${rowIndex}, this.value)"
-                                    />
-                                </td>`;
-                            } else if (actualRowNumber === 23) {
-                                // C23 是计算结果
-                                table += `<td>
-                                    <div class="cell-position">${cellPosition}</div>
-                                    ${defaultValue}
-                                </td>`;
-                            } else {
-                                table += `<td>
-                                    <div class="cell-position">${cellPosition}</div>
-                                    ${defaultValue}
-                                </td>`;
-                            }
-                        } else if (filename === 'CL and Vss in preclinical.csv' && 
-                             (header === 'CL/F(mL/min/kg)' || header === 'Vd/F (L/kg)' || 
-                              header === 'CL(mL/min)' || header === 'CL(L/h)' || 
-                              header === 'Vss (L)' || header === 'fu' || 
-                                  header === 'CL/fu' || header === 'Vss/fu')) {
-                            // Handle other editable cells
-                            table += `<td>
-                                <div class="cell-position">${cellPosition}</div>
-                                <input type="number" 
-                                    value="${value || ''}" 
-                                    step="0.0001"
-                                    data-position="${cellPosition}"
-                                    onchange="updateCLVssValue(${rowIndex}, '${header}', this.value)"
-                                />
-                            </td>`;
-                        } else {
-                            let formattedValue = '';
-                            if (typeof value === 'number' && !isNaN(value)) {
-                                formattedValue = value.toFixed(4);
-                            } else if (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!') {
-                                formattedValue = 'N/A';
-                            } else {
-                                formattedValue = value || '';
-                            }
-                            table += `<td>
-                                <div class="cell-position">${cellPosition}</div>
-                                ${formattedValue}
-                            </td>`;
-                        }
-                    });
-                    table += '</tr>';
-                });
-            } else {
-                // 其他文件的显示逻辑
-                data.forEach((row, rowIndex) => {
-                    table += `<tr><td class="row-header">${rowIndex + 1}</td>`;
-                    headers.forEach((header, colIndex) => {
-                        const value = row[header];
-                        const cellPosition = `${getColumnLabel(colIndex)}${rowIndex + 1}`;
-                        let formattedValue = '';
-                        if (typeof value === 'number' && !isNaN(value)) {
-                            formattedValue = value.toFixed(4);
-                        } else if (value === '#REF!' || value === '#DIV/0!' || value === '#VALUE!') {
-                            formattedValue = 'N/A';
-                        } else {
-                            formattedValue = value || '';
-                        }
-                        table += `<td>
-                            <div class="cell-position">${cellPosition}</div>
-                            ${formattedValue}
-                        </td>`;
-                    });
-                    table += '</tr>';
-                });
-            }
-
-            table += '</tbody></table>';
+            // 在数据的开头插入一个空行
+            let newData = [Array(results.data[0].length).fill("")];  // 创建一个空行
+            newData = newData.concat(results.data);  // 将原始数据添加到空行后面
             
-            // Add fitting button for FCIM table
-            if (filename === 'FCIM.csv') {
-                const buttonHtml = `
-                    <div style="margin-top: 20px; text-align: center;">
-                        <button class="csv-button" onclick="plotFCIMFitting()">拟合图</button>
-                    </div>
-                `;
-                document.getElementById('tableContainer').innerHTML = table + buttonHtml;
-            } else {
-            document.getElementById('tableContainer').innerHTML = table;
+            // 创建表格HTML
+            let tableHtml = '<table border="1">';
+            for (let i = 0; i < newData.length; i++) {
+                tableHtml += '<tr>';
+                for (let j = 0; j < newData[i].length; j++) {
+                    tableHtml += '<td>' + newData[i][j] + '</td>';
+                }
+                tableHtml += '</tr>';
             }
+            tableHtml += '</table>';
+            
+            // 添加表格到页面
+            document.getElementById('tableContainer').innerHTML = tableHtml;
 
             // 更新图表
-            updateChart(data, filename);
+            updateChart(results.data, 'CL and Vss in preclinical.csv');
         }
 
         function updateChart(data, filename) {
@@ -1360,42 +1259,34 @@
         }
 
         // 添加更新 CL and Vss 值的函数
-        function updateCLVssValue(rowIndex, header, newValue) {
+        function updateCLVssValue(newValue, rowIndex, colIndex) {
             if (!currentCLVssData) return;
 
-            // 更新数据
-            const value = parseFloat(newValue);
-            if (!isNaN(value)) {
-                currentCLVssData[rowIndex][header] = value;
-
-                // 根据不同的字段更新相关的计算值
+            // 更新输入值
+            currentCLVssData[rowIndex][colIndex] = parseFloat(newValue);
+            
                 const row = currentCLVssData[rowIndex];
-                const BW = row['BW(kg)'];
-
-                switch(header) {
-                    case 'CL(L/h)':
-                        if (row['fu']) {
-                            row['CL/fu'] = value / row['fu'];
-                        }
-                        break;
-                    case 'Vss (L)':
-                        if (row['fu']) {
-                            row['Vss/fu'] = value / row['fu'];
-                        }
-                        break;
-                    case 'fu':
-                        if (row['CL(L/h)']) {
-                            row['CL/fu'] = row['CL(L/h)'] / value;
-                        }
-                        if (row['Vss (L)']) {
-                            row['Vss/fu'] = row['Vss (L)'] / value;
-                        }
-                        break;
+            
+            // 计算CL/fu (第10列)
+            if (colIndex === 5 || colIndex === 8) { // 如果更新了CL(L/h)或fu
+                const clValue = parseFloat(row[5]); // CL(L/h)
+                const fuValue = parseFloat(row[8]); // fu
+                if (!isNaN(clValue) && !isNaN(fuValue) && fuValue !== 0) {
+                    row[9] = clValue / fuValue;
                 }
-
-                // 更新显示
-                displayData(currentCLVssData, 'CL and Vss in preclinical.csv');
             }
+            
+            // 计算Vss/fu (第11列)
+            if (colIndex === 7 || colIndex === 8) { // 如果更新了Vss或fu
+                const vssValue = parseFloat(row[7]); // Vss
+                const fuValue = parseFloat(row[8]); // fu
+                if (!isNaN(vssValue) && !isNaN(fuValue) && fuValue !== 0) {
+                    row[10] = vssValue / fuValue;
+                }
+            }
+            
+            // 重新显示数据
+                displayData(currentCLVssData, 'CL and Vss in preclinical.csv');
         }
 
         // 添加创建表格的辅助函数
@@ -2340,6 +2231,129 @@
             `;
             document.head.appendChild(style);
         }
+
+        function loadPreclinicalData() {
+            Papa.parse('CL and Vss in preclinical.csv', {
+                download: true,
+                header: false,
+                skipEmptyLines: false,
+                complete: function(results) {
+                    // 在数据开头插入空行
+                    let emptyRow = Array(results.data[0].length).fill("");
+                    results.data.unshift(emptyRow);
+                    
+                    preclinicalData = results.data;
+                    
+                    // 计算公式部分保持不变
+                    for (let i = 2; i < preclinicalData.length; i++) {
+                        // ... 现有的计算逻辑保持不变 ...
+                    }
+                    
+                    // 创建表格HTML，美化第一行样式
+                    let tableHtml = '<table border="1" class="data-table">';
+                    for (let i = 0; i < preclinicalData.length; i++) {
+                        if (i === 1) {
+                            // 第一行（标题行）使用特殊样式
+                            tableHtml += '<tr class="header-row">';
+                            for (let j = 0; j < preclinicalData[i].length; j++) {
+                                const cellValue = preclinicalData[i][j] || '';
+                                tableHtml += `<td class="header-cell">${cellValue}</td>`;
+                            }
+                            tableHtml += '</tr>';
+                        } else {
+                            // 其他行保持原有逻辑
+                            tableHtml += '<tr>';
+                            for (let j = 0; j < preclinicalData[i].length; j++) {
+                                const cellValue = preclinicalData[i][j] || '';
+                                if ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(j)) {
+                                    if ([4, 5, 7, 9, 10].includes(j) && i >= 2) {
+                                        const formattedValue = parseFloat(cellValue).toFixed(4);
+                                        tableHtml += `<td class="readonly calculated">${formattedValue}</td>`;
+                                    } else {
+                                        tableHtml += `<td class="readonly">${cellValue}</td>`;
+                                    }
+                                } else {
+                                    tableHtml += `<td class="editable" contenteditable="true">${cellValue}</td>`;
+                                }
+                            }
+                            tableHtml += '</tr>';
+                        }
+                    }
+                    tableHtml += '</table>';
+                    
+                    document.getElementById('preclinicalTable').innerHTML = tableHtml;
+                    
+                    // 更新CSS样式，添加标题行的样式
+                    const style = document.createElement('style');
+                    style.textContent = `
+                        .data-table {
+                            border-collapse: collapse;
+                            width: 100%;
+                            font-family: Arial, sans-serif;
+                        }
+                        
+                        .header-row {
+                            background-color: #f8f9fa;
+                        }
+                        
+                        .header-cell {
+                            padding: 12px;
+                            text-align: center;
+                            font-weight: bold;
+                            color: #333;
+                            border: 1px solid #dee2e6;
+                            background-color: #f8f9fa;
+                        }
+                        
+                        .readonly {
+                            background-color: #f0f0f0;
+                            cursor: not-allowed;
+                            padding: 8px;
+                        }
+                        
+                        .calculated {
+                            background-color: #e8f4f8;
+                        }
+                        
+                        .editable {
+                            background-color: white;
+                            cursor: text;
+                            padding: 8px;
+                        }
+                        
+                        .data-table td {
+                            border: 1px solid #dee2e6;
+                        }
+                        
+                        .data-table tr:hover {
+                            background-color: #f5f5f5;
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+            });
+        }
+
+        // 添加数据更改时的重新计算功能
+        function updateCalculations() {
+            // 从第三行开始重新计算所有公式
+            for (let i = 2; i < preclinicalData.length; i++) {
+                // 重新计算所有公式
+                preclinicalData[i][4] = parseFloat(preclinicalData[i][3]) * parseFloat(preclinicalData[i][2]); // E列
+                preclinicalData[i][5] = parseFloat(preclinicalData[i][4]) * 0.06; // F列
+                preclinicalData[i][7] = parseFloat(preclinicalData[i][6]) * parseFloat(preclinicalData[i][2]); // H列
+                preclinicalData[i][9] = parseFloat(preclinicalData[i][5]) / parseFloat(preclinicalData[i][8]); // J列
+                preclinicalData[i][10] = parseFloat(preclinicalData[i][6]) / parseFloat(preclinicalData[i][8]); // K列
+            }
+            // 更新表格显示
+            loadPreclinicalData();
+        }
+
+        // 确保在页面加载时调用此函数
+        window.onload = function() {
+            loadPreclinicalData();
+            // ... existing code ...
+        };
     </script>
 </body>
 </html> 
