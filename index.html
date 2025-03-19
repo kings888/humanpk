@@ -8,6 +8,9 @@
     <style>
         .button-container {
             margin: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         .csv-button {
             padding: 10px 20px;
@@ -21,32 +24,53 @@
         .csv-button:hover {
             background-color: #45a049;
         }
-        .title-section {
-            display: inline-block;
-            margin-left: 20px;
-            vertical-align: middle;
-        }
-        .main-title {
-            font-size: 24px;
-            color: #333;
-            margin: 0;
-            font-weight: bold;
-        }
-        .sub-title {
-            font-size: 16px;
-            color: #666;
-            margin: 5px 0 0 0;
-            font-style: italic;
-        }
         .header-container {
             display: flex;
             align-items: center;
-            justify-content: flex-start;
-            padding-right: 20px;
+            justify-content: center;
+            width: 100%;
+            gap: 20px;
+        }
+        .buttons-and-title {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .buttons-row {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .title-section {
+            text-align: center;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .title-text {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         .logo {
-            height: 80px;
-            margin-left: 10px;
+            height: 40px;
+            margin: 0;
+            background-color: white;
+            padding: 2px;
+            border-radius: 4px;
+        }
+        .main-title {
+            margin: 0;
+            font-size: 24px;
+            color: #333;
+        }
+        .sub-title {
+            margin: 5px 0 0 0;
+            font-size: 16px;
+            color: #666;
         }
         #tableContainer {
             margin: 20px;
@@ -156,18 +180,24 @@
 <body>
     <div class="button-container">
         <div class="header-container">
-            <div>
-                <button class="csv-button" onclick="loadCSV('Allometry-CL.csv')">Allometry-CL</button>
-                <button class="csv-button" onclick="loadCSV('CL and Vss in preclinical.csv')">CL and Vss in preclinical</button>
-                <button class="csv-button" onclick="loadCSV('FCIM.csv')">FCIM</button>
-                <button class="csv-button" onclick="loadCSV('IVIVE for CL.csv')">IVIVE for CL</button>
-                <button class="csv-button" onclick="loadCSV('Wajim-CL.csv')">Wajim-CL</button>
+            <div class="buttons-and-title">
+                <div class="buttons-row">
+                    <button class="csv-button" onclick="loadCSV('Allometry-CL.csv')">Allometry-CL</button>
+                    <button class="csv-button" onclick="loadCSV('CL and Vss in preclinical.csv')">CL and Vss in preclinical</button>
+                    <button class="csv-button" onclick="loadCSV('FCIM.csv')">FCIM</button>
+                    <button class="csv-button" onclick="loadCSV('IVIVE for CL.csv')">IVIVE for CL</button>
+                    <button class="csv-button" onclick="loadCSV('Wajim-CL.csv')">Wajim-CL</button>
+                </div>
                 <div class="title-section">
-                    <h1 class="main-title">Human PK Analysis</h1>
-                    <p class="sub-title">Pharmacokinetic Data Analysis Tool</p>
+                    <div class="title-text">
+                        <img src="logo.png" alt="Company Logo" class="logo">
+                        <div>
+                            <h1 class="main-title">Human PK Analysis</h1>
+                            <p class="sub-title">Pharmacokinetic Data Analysis Tool</p>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <img src="logo.png" alt="Company Logo" class="logo">
         </div>
     </div>
     <div id="tableContainer"></div>
