@@ -662,8 +662,11 @@
             
             let table = '<table class="data-table"><tbody>';
             
-            // 遍历原始数据行，但跳过最后两行（input data和output data）
-            for (let i = 0; i < rawData.length - 2; i++) {
+            // 遍历原始数据行，但跳过A24和A25行
+            for (let i = 0; i < rawData.length; i++) {
+                // 跳过input data和output data行
+                if (i === 23 || i === 24) continue;
+                
                 const row = rawData[i];
                 
                 // 跳过完全空的行
