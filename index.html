@@ -402,16 +402,16 @@
             try {
                 if (!data || !Array.isArray(data)) {
                     console.error('无效的数据格式');
-                return;
-            }
-            
+                    return;
+                }
+                
                 // 确保数据至少有3行（空行、标题行和数据行）
                 if (data.length < 3) {
                     console.error('数据行数不足');
                     return;
                 }
-            
-            // 创建表格HTML
+                
+                // 创建表格HTML
                 let table = '<div style="margin-bottom: 20px;">';
                 table += '<table class="data-table">';
                 
@@ -419,8 +419,8 @@
                 table += '<thead><tr style="background-color: #4CAF50; color: white;">';
                 const headers = ['Animal', 'Dose (mg/kg)', 'BW(kg)', 'CL/F(mL/min/kg)', 'CL(mL/min)', 
                                 'CL(L/h)', 'Vd/F (L/kg)', 'Vss (L)', 'fu', 'CL/fu', 'Vss/fu'];
-                headers.forEach((header, j) => {
-                    const cellPosition = `${getColumnLabel(j)}1`;
+                headers.forEach((header, colIndex) => {
+                    const cellPosition = `${getColumnLabel(colIndex)}1`;
                     table += `<td class="cell-container">
                         <div class="cell-position" style="color: rgba(255,255,255,0.7);">${cellPosition}</div>
                         <div class="cell-content">${header}</div>
@@ -434,40 +434,35 @@
                     if (!row || !Array.isArray(row) || row.every(cell => !cell)) continue; // 跳过空行
                     
                     table += '<tr>';
-                    for (let j = 0; j < headers.length; j++) {
-                        let cellContent = row[j] || '';
-                        const cellPosition = `${getColumnLabel(j)}${i+1}`;
+                    headers.forEach((header, colIndex) => {
+                        let cellContent = row[colIndex] || '';
+                        const cellPosition = `${getColumnLabel(colIndex)}${i+1}`;
                         
-                        // 检查是否是可编辑列
-                        // BW(kg), CL/F, CL(mL/min), CL(L/h), Vd/F, Vss, fu 是可编辑的
-                        const editableColumns = [2, 3, 4, 5, 6, 7, 8];
-                        
-                        if (editableColumns.includes(j)) {
+                        // 检查是否是可编辑列 (B, C, D, E, F, G, H, I列)
+                        if ([1, 2, 3, 4, 5, 6, 7, 8].includes(colIndex)) {
                             // 从SessionStorage获取保存的值
-                            const storageKey = `preclinical_${i}_${j}`;
+                            const storageKey = `preclinical_${i}_${colIndex}`;
                             const savedValue = sessionStorage.getItem(storageKey);
-                            if (savedValue !== null) {
-                                cellContent = savedValue;
-                            }
                             
                             table += `<td class="cell-container">
                                 <div class="cell-position">${cellPosition}</div>
                                 <input type="number" 
-                                    value="${cellContent}" 
+                                    value="${savedValue || ''}" 
                                     step="0.00000001"
                                     style="width: 120px;"
                                     data-row="${i}"
-                                    data-col="${j}"
-                                    onchange="updateCLVssValue(this.value, ${i}, ${j})"
+                                    data-col="${colIndex}"
+                                    onchange="updateCLVssValue(this.value, ${i}, ${colIndex})"
                                 />
                             </td>`;
                         } else {
+                            // 不可编辑列保持原样显示
                             table += `<td class="cell-container">
                                 <div class="cell-position">${cellPosition}</div>
                                 <div class="cell-content">${cellContent}</div>
                             </td>`;
                         }
-                    }
+                    });
                     table += '</tr>';
                 }
                 table += '</tbody></table>';
@@ -480,7 +475,7 @@
                 }
                 tableContainer.innerHTML = table;
 
-            // 更新图表
+                // 更新图表
                 if (typeof updateChart === 'function') {
                     updateChart(data, filename);
                 }
@@ -975,66 +970,92 @@
             displayData(currentFCIMData, 'FCIM.csv');
         }
 
-        // 修改 updateCLVssValue 函数
+        // 修改 updateCLVssValue 函数，添加计算逻辑
         function updateCLVssValue(newValue, rowIndex, colIndex) {
             try {
-                // 立即保存到 SessionStorage
                 const storageKey = `preclinical_${rowIndex}_${colIndex}`;
-                const numValue = parseFloat(newValue);
-                if (!isNaN(numValue)) {
-                    sessionStorage.setItem(storageKey, numValue.toString());
-                    
-                    // 更新当前数据
+                
+                // 处理空值情况
+                if (newValue === '' || newValue === null) {
+                    sessionStorage.removeItem(storageKey);
                     if (currentCLVssData && currentCLVssData[rowIndex]) {
-                        currentCLVssData[rowIndex][colIndex] = numValue;
-                        
-                        // 重新显示数据以更新计算结果
-                        displayData(currentCLVssData, 'CL and Vss in preclinical.csv');
+                        currentCLVssData[rowIndex][colIndex] = '';
                     }
-                }
-            } catch (error) {
-                console.error('保存数据时发生错误:', error);
-            }
-        }
-
-        // 修改 restorePreclinicalData 函数
-        function restorePreclinicalData() {
-            if (!currentCLVssData) return;
-            
-            try {
-                // 遍历所有行和列
-                for (let i = 2; i < currentCLVssData.length; i++) {
-                    const editableColumns = [2, 3, 4, 5, 6, 7, 8]; // BW(kg), CL/F, CL(mL/min), CL(L/h), Vd/F, Vss, fu
-                    for (let j of editableColumns) {
-                        const storageKey = `preclinical_${i}_${j}`;
-                        const savedValue = sessionStorage.getItem(storageKey);
-                        if (savedValue !== null) {
-                            currentCLVssData[i][j] = parseFloat(savedValue);
+                } else {
+                    // 处理数值情况
+                    const numValue = parseFloat(newValue);
+                    if (!isNaN(numValue)) {
+                        sessionStorage.setItem(storageKey, numValue.toString());
+                        if (currentCLVssData && currentCLVssData[rowIndex]) {
+                            currentCLVssData[rowIndex][colIndex] = numValue;
                         }
                     }
                 }
+
+                // 如果更新的是C列(BW)或D列(CL/F)，重新计算E和F列
+                if ((colIndex === 2 || colIndex === 3) && currentCLVssData && currentCLVssData[rowIndex]) {
+                    const bw = parseFloat(currentCLVssData[rowIndex][2]); // C列 - BW(kg)
+                    const clF = parseFloat(currentCLVssData[rowIndex][3]); // D列 - CL/F(mL/min/kg)
+                    
+                    // 只有当两个值都存在且有效时才计算
+                    if (!isNaN(bw) && !isNaN(clF)) {
+                        // 计算E列 - CL(mL/min)
+                        const clMlMin = clF * bw;
+                        currentCLVssData[rowIndex][4] = clMlMin;
+                        sessionStorage.setItem(`preclinical_${rowIndex}_4`, clMlMin.toString());
+                        
+                        // 计算F列 - CL(L/h)
+                        const clLHr = clMlMin * 0.06;
+                        currentCLVssData[rowIndex][5] = clLHr;
+                        sessionStorage.setItem(`preclinical_${rowIndex}_5`, clLHr.toString());
+                    } else {
+                        // 如果输入值无效，清除计算结果
+                        sessionStorage.removeItem(`preclinical_${rowIndex}_4`);
+                        sessionStorage.removeItem(`preclinical_${rowIndex}_5`);
+                        if (currentCLVssData[rowIndex]) {
+                            currentCLVssData[rowIndex][4] = '';
+                            currentCLVssData[rowIndex][5] = '';
+                        }
+                    }
+                }
+
+                // 重新显示数据
+                displayData(currentCLVssData, 'CL and Vss in preclinical.csv');
             } catch (error) {
-                console.error('恢复数据时发生错误:', error);
+                console.error('更新数据时发生错误:', error);
             }
         }
 
-        // 添加从SessionStorage恢复数据的函数
+        // 添加 restorePreclinicalData 函数（如果还没有）
         function restorePreclinicalData() {
             if (!currentCLVssData) return;
             
-            // 遍历所有行和列
-            for (let i = 2; i < currentCLVssData.length; i++) {
-                for (let j = 2; j <= 8; j++) { // C-I列 (索引2-8)
-                    const storageKey = `preclinical_${i}_${j}`;
-                    const savedValue = sessionStorage.getItem(storageKey);
-                    if (savedValue !== null) {
-                        currentCLVssData[i][j] = savedValue;
+            try {
+                // 遍历所有行
+                for (let i = 2; i < currentCLVssData.length; i++) {
+                    if (!currentCLVssData[i]) continue;
+                    
+                    // 恢复所有可编辑列的值
+                    const editableColumns = [1, 2, 3, 4, 5, 6, 7, 8];
+                    
+                    for (let colIndex of editableColumns) {
+                        const storageKey = `preclinical_${i}_${colIndex}`;
+                        const savedValue = sessionStorage.getItem(storageKey);
+                        
+                        if (savedValue !== null) {
+                            currentCLVssData[i][colIndex] = parseFloat(savedValue);
+                        } else {
+                            // 如果没有保存的值，设为空字符串
+                            currentCLVssData[i][colIndex] = '';
+                        }
                     }
                 }
-            }
-            
-            // 重新显示数据
+                
+                // 显示恢复的数据
                 displayData(currentCLVssData, 'CL and Vss in preclinical.csv');
+            } catch (error) {
+                console.error('恢复数据时发生错误:', error);
+            }
         }
 
         // 添加创建表格的辅助函数
@@ -1330,97 +1351,68 @@
 
             // 创建数据行，从23开始编号
             data.forEach((row, rowIndex) => {
-                const actualRowNumber = rowIndex + 23;  // 行号从23开始
+                const actualRowNumber = rowIndex + 23;
                 table += `<tr><td class="row-header">${actualRowNumber}</td>`;
                 headers.forEach((header, colIndex) => {
-                    const value = row[header];
-                    const cellPosition = `${getColumnLabel(colIndex)}${actualRowNumber}`;  // 使用新的行号
+                    const cellPosition = `${getColumnLabel(colIndex)}${actualRowNumber}`;
                     
-                    // Body Weight (kg)列使用固定值
-                    if (header === 'Body Weight (kg)') {
-                        const isEditable = actualRowNumber >= 23 && actualRowNumber <= 33;  // 修改这里，包含33行
-                        if (isEditable) {
-                            table += `<td class="input-cell">
-                                <div class="cell-position">${cellPosition}</div>
-                                <input type="number" 
-                                    value="${value || ''}" 
-                                    step="0.00000001"
-                                    style="width: 120px;"
-                                    onchange="updateAllometryValue('${header}', ${rowIndex}, this.value)"
-                                />
-                            </td>`;
-                        } else {
-                            table += `<td class="constant-cell">
-                                <div class="cell-position">${cellPosition}</div>
-                                ${typeof value === 'number' ? value.toFixed(8) : (value || '')}
-                            </td>`;
+                    // 检查是否是可编辑列
+                    if (header === 'Body Weight (kg)' || header === 'Cl(L/h)' || header === 'Fu') {
+                        // 从 SessionStorage 获取保存的值
+                        let storageKey;
+                        switch(header) {
+                            case 'Body Weight (kg)': storageKey = 'columnB'; break;
+                            case 'Cl(L/h)': storageKey = 'columnE'; break;
+                            case 'Fu': storageKey = 'columnG'; break;
                         }
-                        row[header] = value;  // 更新数据
                         
-                        // 同时计算Brain Weight
-                        if (header === 'Body Weight (kg)') {
-                            switch(row['Animal']) {
-                                case 'Mouse':
-                                    row['Brain Weight (kg)'] = value * 1.65/100;
-                                    break;
-                                case 'Rat':
-                                    row['Brain Weight (kg)'] = value * 0.57/100;
-                                    break;
-                                case 'Dog':
-                                    row['Brain Weight (kg)'] = value * 0.78/100;
-                                    break;
-                                case 'Monkey':
-                                    row['Brain Weight (kg)'] = value * 1.56/100;
-                                    break;
-                                case 'Human':
-                                    row['Brain Weight (kg)'] = value * 2/100;
-                                    break;
-                            }
-                        }
-                    }
-                    // Brain Weight (kg)列显示计算结果
-                    else if (header === 'Brain Weight (kg)') {
-                        table += `<td class="output-cell">
+                        const savedValues = JSON.parse(sessionStorage.getItem(storageKey) || '[]');
+                        const savedValue = savedValues[rowIndex];
+                        
+                        // 所有行都默认为空
+                        const displayValue = savedValue !== undefined ? savedValue : '';
+
+                        table += `<td class="input-cell">
                             <div class="cell-position">${cellPosition}</div>
-                            ${typeof value === 'number' ? value.toFixed(8) : (value || '')}
+                            <input type="number" 
+                                value="${displayValue}"
+                                step="0.00000001"
+                                style="width: 120px;"
+                                onchange="updateAllometryValue('${header}', ${rowIndex}, this.value)"
+                            />
                         </td>`;
                     }
-                    // Animal列不可编辑
+                    // Brain Weight (kg) 列显示计算结果
+                    else if (header === 'Brain Weight (kg)') {
+                        const bw = parseFloat(row['Body Weight (kg)']);
+                        let brainWeight = '';
+                        if (!isNaN(bw) && bw > 0) {
+                            switch(row['Animal']) {
+                                case 'Mouse': brainWeight = (bw * 1.65/100).toFixed(8); break;
+                                case 'Rat': brainWeight = (bw * 0.57/100).toFixed(8); break;
+                                case 'Dog': brainWeight = (bw * 0.78/100).toFixed(8); break;
+                                case 'Monkey': brainWeight = (bw * 1.56/100).toFixed(8); break;
+                                case 'Human': brainWeight = (bw * 2/100).toFixed(8); break;
+                            }
+                        }
+                        table += `<td class="output-cell">
+                            <div class="cell-position">${cellPosition}</div>
+                            ${brainWeight}
+                        </td>`;
+                    }
+                    // 其他计算列显示计算结果或空值
+                    else if (['MLP (years)', 'CL*MLP', 'CL*BrW', 'CL/Fu', 'CL/Fu*MLP', 'CL/Fu*BrW'].includes(header)) {
+                        const value = row[header];
+                        table += `<td class="output-cell">
+                            <div class="cell-position">${cellPosition}</div>
+                            ${typeof value === 'number' && value !== 0 ? value.toFixed(8) : ''}
+                        </td>`;
+                    }
+                    // Animal 列显示固定值
                     else if (header === 'Animal') {
                         table += `<td>
                             <div class="cell-position">${cellPosition}</div>
-                            ${value || ''}
-                        </td>`;
-                    }
-                    // Cl(L/h)和Vdss(L)列可编辑（23-33行）
-                    else if ((header === 'Cl(L/h)' || header === 'Vdss(L)') && actualRowNumber >= 23 && actualRowNumber <= 33) {
-                        table += `<td class="input-cell">
-                            <div class="cell-position">${cellPosition}</div>
-                            <input type="number" 
-                                value="${value || ''}" 
-                                step="0.00000001"
-                                style="width: 120px;"
-                                onchange="updateAllometryValue('${header}', ${rowIndex}, this.value)"
-                            />
-                        </td>`;
-                    }
-                    // Fu列可编辑
-                    else if (header === 'Fu') {
-                        table += `<td class="input-cell">
-                            <div class="cell-position">${cellPosition}</div>
-                            <input type="number" 
-                                value="${value || 1}" 
-                                step="0.00000001"
-                                style="width: 120px;"
-                                onchange="updateAllometryValue('${header}', ${rowIndex}, this.value)"
-                            />
-                        </td>`;
-                    }
-                    // 输出值列
-                    else {
-                        table += `<td class="output-cell">
-                            <div class="cell-position">${cellPosition}</div>
-                            ${typeof value === 'number' ? value.toFixed(8) : (value || '')}
+                            ${row[header]}
                         </td>`;
                     }
                 });
@@ -1430,7 +1422,7 @@
             return table;
         }
 
-        // 更新updateAllometryValue函数以处理计算逻辑
+        // 修改 updateAllometryValue 函数
         function updateAllometryValue(header, rowIndex, newValue) {
             if (!currentAllometryData || !currentAllometryData.mainData) return;
             
@@ -1438,8 +1430,7 @@
                 const value = parseFloat(newValue);
                 if (isNaN(value)) return;
 
-            // 保存更新的值到SessionStorage
-            if (header === 'Body Weight (kg)' || header === 'Cl(L/h)' || header === 'Fu') {
+                // 保存更新的值到SessionStorage
                 const columnMap = {
                     'Body Weight (kg)': 'columnB',
                     'Cl(L/h)': 'columnE',
@@ -1448,76 +1439,130 @@
                 const storageKey = columnMap[header];
                 if (storageKey) {
                     const currentValues = JSON.parse(sessionStorage.getItem(storageKey) || '[]');
-                        // 确保数组有足够的长度
-                        while (currentValues.length <= rowIndex) {
-                            currentValues.push(0);
-                        }
-                        currentValues[rowIndex] = value;
+                    while (currentValues.length <= rowIndex) {
+                        currentValues.push(0);
+                    }
+                    currentValues[rowIndex] = value;
                     sessionStorage.setItem(storageKey, JSON.stringify(currentValues));
                 }
-            }
 
-                // 更新数据和显示
-                // ... 现有的更新逻辑 ...
-            } catch (error) {
-                console.error('保存数据时发生错误:', error);
-            }
-        }
+                // 更新数据结构中的值
+                currentAllometryData.mainData[rowIndex][header] = value;
 
-        // 添加辅助函数用于更新计算值
-        function updateAllometryCalculations(row) {
-            // 计算 Brain Weight
-            const bodyWeight = row['Body Weight (kg)'];
-                        if (bodyWeight) {
-                switch(row['Animal']) {
-                                case 'Mouse':
-                        row['Brain Weight (kg)'] = bodyWeight * 1.65/100;
-                                    break;
-                                case 'Rat':
-                        row['Brain Weight (kg)'] = bodyWeight * 0.57/100;
-                                    break;
-                                case 'Dog':
-                        row['Brain Weight (kg)'] = bodyWeight * 0.78/100;
-                                    break;
-                                case 'Monkey':
-                        row['Brain Weight (kg)'] = bodyWeight * 1.56/100;
-                                    break;
-                                case 'Human':
-                        row['Brain Weight (kg)'] = bodyWeight * 2/100;
-                                    break;
+                // 更新当前行的所有计算值
+                const row = currentAllometryData.mainData[rowIndex];
+                
+                // 1. 计算 Brain Weight
+                if (header === 'Body Weight (kg)') {
+                    const bw = value;
+                    switch(row['Animal']) {
+                        case 'Mouse':
+                            row['Brain Weight (kg)'] = bw * 1.65/100;
+                            break;
+                        case 'Rat':
+                            row['Brain Weight (kg)'] = bw * 0.57/100;
+                            break;
+                        case 'Dog':
+                            row['Brain Weight (kg)'] = bw * 0.78/100;
+                            break;
+                        case 'Monkey':
+                            row['Brain Weight (kg)'] = bw * 1.56/100;
+                            break;
+                        case 'Human':
+                            row['Brain Weight (kg)'] = bw * 2/100;
+                            break;
+                    }
+                }
+
+                // 2. 计算 MLP
+                const bw = parseFloat(row['Body Weight (kg)']);
+                const brainWeight = parseFloat(row['Brain Weight (kg)']);
+                if (!isNaN(bw) && !isNaN(brainWeight) && bw > 0 && brainWeight > 0) {
+                    row['MLP (years)'] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bw, -0.225);
+                }
+
+                // 3. 获取其他需要的值
+                const cl = parseFloat(row['Cl(L/h)']);
+                const fu = parseFloat(row['Fu']) || 1; // 默认为1如果未设置
+                const mlp = parseFloat(row['MLP (years)']);
+
+                // 4. 计算其他列
+                if (!isNaN(cl)) {
+                    if (!isNaN(mlp)) {
+                        row['CL*MLP'] = cl * mlp;
+                    }
+                    
+                    if (!isNaN(brainWeight)) {
+                        row['CL*BrW'] = cl * brainWeight;
+                    }
+                    
+                    if (!isNaN(fu) && fu !== 0) {
+                        row['CL/Fu'] = cl / fu;
+                        
+                        if (!isNaN(mlp)) {
+                            row['CL/Fu*MLP'] = (cl / fu) * mlp;
+                        }
+                        
+                        if (!isNaN(brainWeight)) {
+                            row['CL/Fu*BrW'] = (cl / fu) * brainWeight;
                         }
                     }
+                }
 
-            // 计算 MLP
-            const brainWeight = row['Brain Weight (kg)'];
-                    if (bodyWeight && brainWeight) {
-                row['MLP (years)'] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
-            }
-
-            // 计算其他列
-            const cl = row['Cl(L/h)'];
-            const fu = row['Fu'];
-            const mlp = row['MLP (years)'];
-
-                    if (cl && mlp) {
-                row['CL*MLP'] = cl * mlp;
+                // 5. 更新前4行的对数数据（用于拟合图）
+                if (rowIndex < 4) {
+                    const logData = currentAllometryData.logData[rowIndex];
+                    if (bw > 0) {
+                        logData['Log BW'] = Math.log10(bw);
+                        
+                        if (cl > 0) {
+                            logData['if 0.55＜b ≤0.71 log CL'] = Math.log10(cl);
+                            
+                            if (mlp > 0) {
+                                logData['if 0.71＜b ≤1 log CL*MLP'] = Math.log10(cl * mlp);
+                                logData['if 0.71＜b ≤1 log CL/Fu*MLP'] = Math.log10((cl / fu) * mlp);
+                            }
+                            
+                            if (brainWeight > 0) {
+                                logData['if 1＜b ≤1.3 log CL*BrW'] = Math.log10(cl * brainWeight);
+                                logData['if 1＜b ≤1.3 log CL/Fu*BrW'] = Math.log10((cl / fu) * brainWeight);
+                            }
+                        }
                     }
-                    if (cl && brainWeight) {
-                row['CL*BrW'] = cl * brainWeight;
+                }
+
+                // 6. 确保所有计算值都保留8位小数
+                const calculatedColumns = ['Brain Weight (kg)', 'MLP (years)', 'CL*MLP', 'CL*BrW', 'CL/Fu', 'CL/Fu*MLP', 'CL/Fu*BrW'];
+                calculatedColumns.forEach(column => {
+                    if (typeof row[column] === 'number') {
+                        row[column] = parseFloat(row[column].toFixed(8));
                     }
-                    if (cl && fu) {
-                row['CL/Fu'] = cl / fu;
-            }
-            if (row['CL/Fu'] && mlp) {
-                row['CL/Fu*MLP'] = row['CL/Fu'] * mlp;
-            }
-            if (row['CL/Fu'] && brainWeight) {
-                row['CL/Fu*BrW'] = row['CL/Fu'] * brainWeight;
+                });
+
+                // 7. 更新显示
+                updateAllometryDisplay();
+
+            } catch (error) {
+                console.error('更新 Allometry 值时发生错误:', error);
             }
         }
 
-        // 添加辅助函数用于更新显示
+        // 修改 updateAllometryDisplay 函数，添加数据检查
         function updateAllometryDisplay() {
+            try {
+                // 检查数据是否存在
+                if (!currentAllometryData) {
+                    console.error('currentAllometryData is null');
+                    return;
+                }
+
+                // 检查必要的数据结构是否存在
+                if (!currentAllometryData.mainData || !currentAllometryData.logData) {
+                    console.error('Required data structures are missing');
+                    return;
+                }
+
+                // 更新显示
                 document.getElementById('tableContainer').innerHTML = `
                     <div style="margin-bottom: 20px;">
                         <h3>Basic Parameters</h3>
@@ -1534,6 +1579,9 @@
                         </div>
                     </div>
                 `;
+            } catch (error) {
+                console.error('更新 Allometry 显示时发生错误:', error);
+            }
         }
 
         // 添加通用的绘制拟合图函数
@@ -1964,31 +2012,25 @@
             }
         }
 
-        // 添加 processAllometryData 函数
+        // 修改 processAllometryData 函数，确保总是返回有效的数据结构
         function processAllometryData(rawData) {
             try {
-                // 初始化主数据结构（5个标准动物和6个额外的人类条目）
-                const mainData = [
-                    { 'Animal': 'Mouse', 'Body Weight (kg)': 0.02, 'Brain Weight (kg)': 0, 'MLP (years)': 0, 'Cl(L/h)': 0, 'Vdss(L)': 0, 'Fu': 1, 'CL*MLP': 0, 'CL*BrW': 0, 'CL/Fu': 0, 'CL/Fu*MLP': 0, 'CL/Fu*BrW': 0 },
-                    { 'Animal': 'Rat', 'Body Weight (kg)': 0.25, 'Brain Weight (kg)': 0, 'MLP (years)': 0, 'Cl(L/h)': 0, 'Vdss(L)': 0, 'Fu': 1, 'CL*MLP': 0, 'CL*BrW': 0, 'CL/Fu': 0, 'CL/Fu*MLP': 0, 'CL/Fu*BrW': 0 },
-                    { 'Animal': 'Dog', 'Body Weight (kg)': 10, 'Brain Weight (kg)': 0, 'MLP (years)': 0, 'Cl(L/h)': 0, 'Vdss(L)': 0, 'Fu': 1, 'CL*MLP': 0, 'CL*BrW': 0, 'CL/Fu': 0, 'CL/Fu*MLP': 0, 'CL/Fu*BrW': 0 },
-                    { 'Animal': 'Monkey', 'Body Weight (kg)': 5, 'Brain Weight (kg)': 0, 'MLP (years)': 0, 'Cl(L/h)': 0, 'Vdss(L)': 0, 'Fu': 1, 'CL*MLP': 0, 'CL*BrW': 0, 'CL/Fu': 0, 'CL/Fu*MLP': 0, 'CL/Fu*BrW': 0 },
-                    { 'Animal': 'Human', 'Body Weight (kg)': 70, 'Brain Weight (kg)': 0, 'MLP (years)': 0, 'Cl(L/h)': 0, 'Vdss(L)': 0, 'Fu': 1, 'CL*MLP': 0, 'CL*BrW': 0, 'CL/Fu': 0, 'CL/Fu*MLP': 0, 'CL/Fu*BrW': 0 },
-                    { 'Animal': 'Human', 'Body Weight (kg)': 0, 'Brain Weight (kg)': 0, 'MLP (years)': 0, 'Cl(L/h)': 0, 'Vdss(L)': 0, 'Fu': 1, 'CL*MLP': 0, 'CL*BrW': 0, 'CL/Fu': 0, 'CL/Fu*MLP': 0, 'CL/Fu*BrW': 0 },
-                    { 'Animal': 'Human', 'Body Weight (kg)': 0, 'Brain Weight (kg)': 0, 'MLP (years)': 0, 'Cl(L/h)': 0, 'Vdss(L)': 0, 'Fu': 1, 'CL*MLP': 0, 'CL*BrW': 0, 'CL/Fu': 0, 'CL/Fu*MLP': 0, 'CL/Fu*BrW': 0 },
-                    { 'Animal': 'Human', 'Body Weight (kg)': 0, 'Brain Weight (kg)': 0, 'MLP (years)': 0, 'Cl(L/h)': 0, 'Vdss(L)': 0, 'Fu': 1, 'CL*MLP': 0, 'CL*BrW': 0, 'CL/Fu': 0, 'CL/Fu*MLP': 0, 'CL/Fu*BrW': 0 },
-                    { 'Animal': 'Human', 'Body Weight (kg)': 0, 'Brain Weight (kg)': 0, 'MLP (years)': 0, 'Cl(L/h)': 0, 'Vdss(L)': 0, 'Fu': 1, 'CL*MLP': 0, 'CL*BrW': 0, 'CL/Fu': 0, 'CL/Fu*MLP': 0, 'CL/Fu*BrW': 0 },
-                    { 'Animal': 'Human', 'Body Weight (kg)': 0, 'Brain Weight (kg)': 0, 'MLP (years)': 0, 'Cl(L/h)': 0, 'Vdss(L)': 0, 'Fu': 1, 'CL*MLP': 0, 'CL*BrW': 0, 'CL/Fu': 0, 'CL/Fu*MLP': 0, 'CL/Fu*BrW': 0 },
-                    { 'Animal': 'Human', 'Body Weight (kg)': 0, 'Brain Weight (kg)': 0, 'MLP (years)': 0, 'Cl(L/h)': 0, 'Vdss(L)': 0, 'Fu': 1, 'CL*MLP': 0, 'CL*BrW': 0, 'CL/Fu': 0, 'CL/Fu*MLP': 0, 'CL/Fu*BrW': 0 }
-                ];
-
-                // 初始化拟合图的数据结构
-                const logData = [
-                    { 'Log BW': 0, 'if 0.55＜b ≤0.71 log CL': 0, 'if 0.71＜b ≤1 log CL*MLP': 0, 'if 1＜b ≤1.3 log CL*BrW': 0, 'if 0.71＜b ≤1 log CL/Fu*MLP': 0, 'if 1＜b ≤1.3 log CL/Fu*BrW': 0 },
-                    { 'Log BW': 0, 'if 0.55＜b ≤0.71 log CL': 0, 'if 0.71＜b ≤1 log CL*MLP': 0, 'if 1＜b ≤1.3 log CL*BrW': 0, 'if 0.71＜b ≤1 log CL/Fu*MLP': 0, 'if 1＜b ≤1.3 log CL/Fu*BrW': 0 },
-                    { 'Log BW': 0, 'if 0.55＜b ≤0.71 log CL': 0, 'if 0.71＜b ≤1 log CL*MLP': 0, 'if 1＜b ≤1.3 log CL*BrW': 0, 'if 0.71＜b ≤1 log CL/Fu*MLP': 0, 'if 1＜b ≤1.3 log CL/Fu*BrW': 0 },
-                    { 'Log BW': 0, 'if 0.55＜b ≤0.71 log CL': 0, 'if 0.71＜b ≤1 log CL*MLP': 0, 'if 1＜b ≤1.3 log CL*BrW': 0, 'if 0.71＜b ≤1 log CL/Fu*MLP': 0, 'if 1＜b ≤1.3 log CL/Fu*BrW': 0 }
-                ];
+                // 初始化默认数据结构，B列设置为空字符串
+                const defaultData = {
+                    mainData: [
+                        { 'Animal': 'Mouse', 'Body Weight (kg)': '', 'Brain Weight (kg)': '', 'MLP (years)': '', 'Cl(L/h)': '', 'Fu': '', 'CL*MLP': '', 'CL*BrW': '', 'CL/Fu': '', 'CL/Fu*MLP': '', 'CL/Fu*BrW': '' },
+                        { 'Animal': 'Rat', 'Body Weight (kg)': '', 'Brain Weight (kg)': '', 'MLP (years)': '', 'Cl(L/h)': '', 'Fu': '', 'CL*MLP': '', 'CL*BrW': '', 'CL/Fu': '', 'CL/Fu*MLP': '', 'CL/Fu*BrW': '' },
+                        { 'Animal': 'Dog', 'Body Weight (kg)': '', 'Brain Weight (kg)': '', 'MLP (years)': '', 'Cl(L/h)': '', 'Fu': '', 'CL*MLP': '', 'CL*BrW': '', 'CL/Fu': '', 'CL/Fu*MLP': '', 'CL/Fu*BrW': '' },
+                        { 'Animal': 'Monkey', 'Body Weight (kg)': '', 'Brain Weight (kg)': '', 'MLP (years)': '', 'Cl(L/h)': '', 'Fu': '', 'CL*MLP': '', 'CL*BrW': '', 'CL/Fu': '', 'CL/Fu*MLP': '', 'CL/Fu*BrW': '' },
+                        { 'Animal': 'Human', 'Body Weight (kg)': '', 'Brain Weight (kg)': '', 'MLP (years)': '', 'Cl(L/h)': '', 'Fu': '', 'CL*MLP': '', 'CL*BrW': '', 'CL/Fu': '', 'CL/Fu*MLP': '', 'CL/Fu*BrW': '' }
+                    ],
+                    logData: [
+                        { 'Log BW': '', 'if 0.55＜b ≤0.71 log CL': '', 'if 0.71＜b ≤1 log CL*MLP': '', 'if 1＜b ≤1.3 log CL*BrW': '', 'if 0.71＜b ≤1 log CL/Fu*MLP': '', 'if 1＜b ≤1.3 log CL/Fu*BrW': '' },
+                        { 'Log BW': '', 'if 0.55＜b ≤0.71 log CL': '', 'if 0.71＜b ≤1 log CL*MLP': '', 'if 1＜b ≤1.3 log CL*BrW': '', 'if 0.71＜b ≤1 log CL/Fu*MLP': '', 'if 1＜b ≤1.3 log CL/Fu*BrW': '' },
+                        { 'Log BW': '', 'if 0.55＜b ≤0.71 log CL': '', 'if 0.71＜b ≤1 log CL*MLP': '', 'if 1＜b ≤1.3 log CL*BrW': '', 'if 0.71＜b ≤1 log CL/Fu*MLP': '', 'if 1＜b ≤1.3 log CL/Fu*BrW': '' },
+                        { 'Log BW': '', 'if 0.55＜b ≤0.71 log CL': '', 'if 0.71＜b ≤1 log CL*MLP': '', 'if 1＜b ≤1.3 log CL*BrW': '', 'if 0.71＜b ≤1 log CL/Fu*MLP': '', 'if 1＜b ≤1.3 log CL/Fu*BrW': '' }
+                    ]
+                };
 
                 // 从 SessionStorage 恢复保存的值
                 const columnB = JSON.parse(sessionStorage.getItem('columnB') || '[]');
@@ -1996,19 +2038,19 @@
                 const columnG = JSON.parse(sessionStorage.getItem('columnG') || '[]');
 
                 // 恢复保存的值到数据结构
-                mainData.forEach((row, index) => {
-                    if (columnB[index] !== undefined) row['Body Weight (kg)'] = columnB[index];
-                    if (columnE[index] !== undefined) row['Cl(L/h)'] = columnE[index];
-                    if (columnG[index] !== undefined) row['Fu'] = columnG[index];
-                    
-                    // 更新计算值
-                    updateAllometryCalculations(row);
+                defaultData.mainData.forEach((row, index) => {
+                    if (columnB[index] !== undefined && columnB[index] !== null && columnB[index] !== '') {
+                        row['Body Weight (kg)'] = columnB[index];
+                    }
+                    if (columnE[index] !== undefined && columnE[index] !== null && columnE[index] !== '') {
+                        row['Cl(L/h)'] = columnE[index];
+                    }
+                    if (columnG[index] !== undefined && columnG[index] !== null && columnG[index] !== '') {
+                        row['Fu'] = columnG[index];
+                    }
                 });
 
-                return {
-                    mainData: mainData,
-                    logData: logData
-                };
+                return defaultData;
             } catch (error) {
                 console.error('处理 Allometry 数据时发生错误:', error);
                 return null;
@@ -2150,6 +2192,90 @@
                 displayIVIVEData(currentIVIVEData, 'IVIVE for CL.csv');
             } catch (error) {
                 console.error('更新IVIVE数据时发生错误:', error);
+            }
+        }
+
+        // 修改 updateAllometryCalculations 函数，添加所有列的计算
+        function updateAllometryCalculations(row) {
+            try {
+                // 获取基础输入值
+                const bodyWeight = parseFloat(row['Body Weight (kg)']);
+                const cl = parseFloat(row['Cl(L/h)']);
+                const fu = parseFloat(row['Fu']) || 1; // 如果Fu未设置，默认为1
+
+                // 1. 计算 Brain Weight (C列)
+                if (!isNaN(bodyWeight)) {
+                    switch(row['Animal']) {
+                        case 'Mouse':
+                            row['Brain Weight (kg)'] = bodyWeight * 1.65/100;
+                            break;
+                        case 'Rat':
+                            row['Brain Weight (kg)'] = bodyWeight * 0.57/100;
+                            break;
+                        case 'Dog':
+                            row['Brain Weight (kg)'] = bodyWeight * 0.78/100;
+                            break;
+                        case 'Monkey':
+                            row['Brain Weight (kg)'] = bodyWeight * 1.56/100;
+                            break;
+                        case 'Human':
+                            row['Brain Weight (kg)'] = bodyWeight * 2/100;
+                            break;
+                    }
+                }
+
+                // 2. 计算 MLP (D列)
+                const brainWeight = parseFloat(row['Brain Weight (kg)']);
+                if (!isNaN(bodyWeight) && !isNaN(brainWeight) && bodyWeight > 0 && brainWeight > 0) {
+                    row['MLP (years)'] = 185.4 * Math.pow(brainWeight, 0.636) * Math.pow(bodyWeight, -0.225);
+                }
+
+                // 3. 计算 CL*MLP (G列)
+                if (!isNaN(cl) && !isNaN(row['MLP (years)'])) {
+                    row['CL*MLP'] = cl * row['MLP (years)'];
+                }
+
+                // 4. 计算 CL*BrW (H列)
+                if (!isNaN(cl) && !isNaN(brainWeight)) {
+                    row['CL*BrW'] = cl * brainWeight;
+                }
+
+                // 5. 计算 CL/Fu (I列)
+                if (!isNaN(cl) && !isNaN(fu) && fu !== 0) {
+                    row['CL/Fu'] = cl / fu;
+                }
+
+                // 6. 计算 CL/Fu*MLP (J列)
+                if (!isNaN(cl) && !isNaN(fu) && fu !== 0 && !isNaN(row['MLP (years)'])) {
+                    row['CL/Fu*MLP'] = (cl / fu) * row['MLP (years)'];
+                }
+
+                // 7. 计算 CL/Fu*BrW (K列)
+                if (!isNaN(cl) && !isNaN(fu) && fu !== 0 && !isNaN(brainWeight)) {
+                    row['CL/Fu*BrW'] = (cl / fu) * brainWeight;
+                }
+
+                // 确保所有计算值都保留8位小数
+                const calculatedColumns = [
+                    'Brain Weight (kg)', 
+                    'MLP (years)', 
+                    'CL*MLP', 
+                    'CL*BrW', 
+                    'CL/Fu', 
+                    'CL/Fu*MLP', 
+                    'CL/Fu*BrW'
+                ];
+                
+                calculatedColumns.forEach(column => {
+                    if (typeof row[column] === 'number') {
+                        row[column] = parseFloat(row[column].toFixed(8));
+                    }
+                });
+
+                console.log('计算完成:', row); // 调试日志
+
+            } catch (error) {
+                console.error('计算 Allometry 值时发生错误:', error);
             }
         }
     </script>
